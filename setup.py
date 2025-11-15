@@ -32,7 +32,6 @@ setup(
     scripts=[
         "Tules.py",
         "Tules-sessions.py",
-        "!",
     ],
 
     python_requires=">=3.8",
@@ -40,7 +39,6 @@ setup(
     install_requires=[
         "rich>=13.0.0",
         "click>=8.0.0",
-        "schedule>=1.1.0",
     ],
 
     classifiers=[

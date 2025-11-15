@@ -11,18 +11,17 @@ import json
 import uuid
 import subprocess
 import signal
+import re
+import glob
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
-from tui_renderer import render_response
 
 import click
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.live import Live
-from rich.syntax import Syntax
-import schedule
+from rich.prompt import Confirm
 import time
 
 # Import AI provider abstraction
@@ -34,11 +33,10 @@ console = Console()
 BG_AGENTS_DIR = None
 SESSIONS_FILE = None
 LOGS_DIR = None
-SCHEDULES_FILE = None
 
 def init_config(provider_name: Optional[str] = None):
     """Initialize configuration based on provider"""
-    global BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR, SCHEDULES_FILE
+    global BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR
 
     # Get provider
     if provider_name:
@@ -59,7 +57,6 @@ def init_config(provider_name: Optional[str] = None):
     BG_AGENTS_DIR = provider.get_bg_agents_dir()
     SESSIONS_FILE = BG_AGENTS_DIR / 'sessions.json'
     LOGS_DIR = BG_AGENTS_DIR / 'logs'
-    SCHEDULES_FILE = BG_AGENTS_DIR / 'schedules.json'
 
     return provider
 
@@ -69,8 +66,6 @@ def ensure_dirs():
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     if not SESSIONS_FILE.exists():
         SESSIONS_FILE.write_text('[]')
-    if not SCHEDULES_FILE.exists():
-        SCHEDULES_FILE.write_text('[]')
 
 def load_sessions() -> List[Dict]:
     """Load session metadata"""
@@ -84,19 +79,6 @@ def save_sessions(sessions: List[Dict]):
     """Save session metadata"""
     ensure_dirs()
     SESSIONS_FILE.write_text(json.dumps(sessions, indent=2))
-
-def load_schedules() -> List[Dict]:
-    """Load scheduled tasks"""
-    ensure_dirs()
-    try:
-        return json.loads(SCHEDULES_FILE.read_text())
-    except:
-        return []
-
-def save_schedules(schedules: List[Dict]):
-    """Save scheduled tasks"""
-    ensure_dirs()
-    SCHEDULES_FILE.write_text(json.dumps(schedules, indent=2))
 
 def check_git_repo() -> bool:
     """Check if current directory is a git repository"""
@@ -117,7 +99,6 @@ def get_current_branch() -> Optional[str]:
 def sanitize_branch_name(prompt: str, session_id: str, provider_name: str = 'ai') -> str:
     """Generate a sanitized branch name from prompt and session ID"""
     # Take first 40 chars of prompt, remove special chars, convert to kebab-case
-    import re
     sanitized = re.sub(r'[^a-zA-Z0-9\s-]', '', prompt[:40])
     sanitized = re.sub(r'\s+', '-', sanitized).strip('-').lower()
 
@@ -284,9 +265,9 @@ def run_background(prompt: str, provider, session_id: Optional[str] = None, use_
 
         # Start a background process to capture docker logs
         log_cmd = ['docker', 'logs', '-f', container_name]
-        log_process = subprocess.Popen(
+        subprocess.Popen(
             log_cmd,
-            stdout=open(log_path, 'w'),
+            stdout=open(log_path, 'w', buffering=1),
             stderr=subprocess.STDOUT
         )
 
@@ -297,18 +278,12 @@ def run_background(prompt: str, provider, session_id: Optional[str] = None, use_
         process = subprocess.Popen(
             cmd,
             stdin=subprocess.DEVNULL,
-            stdout=open(log_path, 'w'),
+            stdout=open(log_path, 'w', buffering=1),
             stderr=subprocess.STDOUT,
             cwd=os.getcwd(),
             start_new_session=True
         )
 
-    # ...get AI response...
-    ai_response = provider.run(prompt)
-    
-    # Render with TUI instead of plain print
-    render_response(ai_response)
-    
     # Save session metadata
     sessions = load_sessions()
     sessions.append({
@@ -326,7 +301,7 @@ def run_background(prompt: str, provider, session_id: Optional[str] = None, use_
     })
     save_sessions(sessions)
 
-    return ai_response, session_id
+    return session_id
 
 def get_session_status(session: Dict) -> str:
     """Check if session process is still running"""
@@ -404,14 +379,14 @@ def list(show_all: bool, provider_filter: Optional[str]):
             continue
 
         # Temporarily set config for this provider
-        old_config = (BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR, SCHEDULES_FILE)
+        old_config = (BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR)
         init_config(provider.get_name())
 
         provider_sessions = load_sessions()
         all_sessions.extend(provider_sessions)
 
         # Restore original config
-        globals()['BG_AGENTS_DIR'], globals()['SESSIONS_FILE'], globals()['LOGS_DIR'], globals()['SCHEDULES_FILE'] = old_config
+        globals()['BG_AGENTS_DIR'], globals()['SESSIONS_FILE'], globals()['LOGS_DIR'] = old_config
 
     sessions = all_sessions
 
@@ -476,14 +451,14 @@ def logs(session_id: str, follow: bool, lines: int):
             continue
 
         # Temporarily set config for this provider
-        old_config = (BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR, SCHEDULES_FILE)
+        old_config = (BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR)
         init_config(provider.get_name())
 
         provider_sessions = load_sessions()
         all_sessions.extend(provider_sessions)
 
         # Restore original config
-        globals()['BG_AGENTS_DIR'], globals()['SESSIONS_FILE'], globals()['LOGS_DIR'], globals()['SCHEDULES_FILE'] = old_config
+        globals()['BG_AGENTS_DIR'], globals()['SESSIONS_FILE'], globals()['LOGS_DIR'] = old_config
 
     # Find matching session (allow partial ID)
     matching = [s for s in all_sessions if s['id'].startswith(session_id)]
@@ -557,54 +532,6 @@ def kill(ctx, session_id: str):
         console.print(f"[red]Error killing session: {e}[/red]")
 
 @cli.command()
-@click.argument('cron_expr')
-@click.argument('prompt')
-@click.option('--name', help='Name for this scheduled task')
-@click.pass_context
-def schedule_task(ctx, cron_expr: str, prompt: str, name: Optional[str]):
-    """Schedule a task (cron syntax: 'MIN HOUR DAY MONTH DAYOFWEEK')"""
-    provider = ctx.obj['provider']
-    schedules = load_schedules()
-
-    schedule_id = str(uuid.uuid4())
-    schedules.append({
-        'id': schedule_id,
-        'name': name or f'Task {len(schedules) + 1}',
-        'cron': cron_expr,
-        'prompt': prompt,
-        'provider': provider.get_name(),
-        'created': datetime.now().isoformat()
-    })
-    save_schedules(schedules)
-
-    console.print(Panel(
-        f"[green]Scheduled task created[/green]\n\n"
-        f"Provider: [blue]{provider.get_name()}[/blue]\n"
-        f"Name: {name or f'Task {len(schedules)}'}\n"
-        f"Cron: {cron_expr}\n"
-        f"Prompt: {prompt[:60]}{'...' if len(prompt) > 60 else ''}\n\n"
-        f"[yellow]Run 'Tules daemon' to start the scheduler[/yellow]",
-        title="📅 Task Scheduled",
-        border_style="green"
-    ))
-
-@cli.command()
-def daemon():
-    """Run scheduler daemon (processes scheduled tasks)"""
-    console.print("[cyan]Starting scheduler daemon...[/cyan]")
-
-    # TODO: Implement proper daemon with schedule library
-    # For now, just show schedules
-    schedules = load_schedules()
-
-    if not schedules:
-        console.print("[yellow]No scheduled tasks found[/yellow]")
-        return
-
-    console.print(f"[green]Found {len(schedules)} scheduled tasks[/green]")
-    console.print("[yellow]Daemon mode not yet implemented - use cron instead[/yellow]")
-
-@cli.command()
 @click.option('--logs', is_flag=True, help='Also delete log files')
 @click.option('--force', is_flag=True, help='Skip confirmation')
 @click.pass_context
@@ -618,7 +545,6 @@ def clear(ctx, logs: bool, force: bool):
         return
 
     if not force:
-        from rich.prompt import Confirm
         if not Confirm.ask(f"Clear {len(sessions)} sessions for {provider.get_name()}?"):
             console.print("[yellow]Cancelled[/yellow]")
             return
@@ -629,7 +555,6 @@ def clear(ctx, logs: bool, force: bool):
 
     # Optionally clear log files
     if logs:
-        import glob
         log_files = glob.glob(str(LOGS_DIR / '*.log'))
         for log_file in log_files:
             Path(log_file).unlink()

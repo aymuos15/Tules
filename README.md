@@ -25,9 +25,9 @@ cd Tules
 Tules run "analyze this codebase"
 T run "analyze this codebase"
 
-# Run with specific provider
-Tules --provider gemini run "explain this code"
-T --provider gemini run "explain this code"
+# Run with specific provider (Claude)
+Tules --provider claude run "explain this code"
+T --provider claude run "explain this code"
 
 # List running agents
 Tules list
@@ -44,8 +44,8 @@ Tules-sessions
 
 ## Features
 
-- **Multi-provider** - Claude Code and Gemini CLI support
-- **Auto-detection** - Automatically finds available AI provider
+- **Multi-provider** - Gemini CLI and Claude Code support
+- **Auto-detection** - Automatically finds available AI provider (defaults to Gemini)
 - **Docker sandboxing** - Isolated execution environment
 - **No prompts** - Auto-skips permission prompts
 - **Session management** - View, resume, and fork sessions
@@ -53,7 +53,7 @@ Tules-sessions
 ## Requirements
 
 - Python 3.8+
-- Claude Code CLI (`claude`) or Gemini CLI (`gemini`)
+- Gemini CLI (`gemini`) or Claude Code CLI (`claude`)
 - Docker (recommended)
 
 ## Documentation
