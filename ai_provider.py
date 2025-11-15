@@ -9,7 +9,7 @@ import json
 import hashlib
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from abc import ABC, abstractmethod
 from datetime import datetime
 

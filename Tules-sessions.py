@@ -18,10 +18,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.text import Text
 from rich.syntax import Syntax
-from rich.layout import Layout
-from rich.live import Live
 
 # Import AI provider abstraction
 from ai_provider import get_provider, detect_provider, get_all_providers

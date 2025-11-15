@@ -11,6 +11,8 @@ import json
 import uuid
 import subprocess
 import signal
+import re
+import glob
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
@@ -19,9 +21,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.live import Live
-from rich.syntax import Syntax
-import schedule
+from rich.prompt import Confirm
 import time
 
 # Import AI provider abstraction
@@ -116,7 +116,6 @@ def get_current_branch() -> Optional[str]:
 def sanitize_branch_name(prompt: str, session_id: str, provider_name: str = 'ai') -> str:
     """Generate a sanitized branch name from prompt and session ID"""
     # Take first 40 chars of prompt, remove special chars, convert to kebab-case
-    import re
     sanitized = re.sub(r'[^a-zA-Z0-9\s-]', '', prompt[:40])
     sanitized = re.sub(r'\s+', '-', sanitized).strip('-').lower()
 
@@ -283,9 +282,9 @@ def run_background(prompt: str, provider, session_id: Optional[str] = None, use_
 
         # Start a background process to capture docker logs
         log_cmd = ['docker', 'logs', '-f', container_name]
-        log_process = subprocess.Popen(
+        subprocess.Popen(
             log_cmd,
-            stdout=open(log_path, 'w'),
+            stdout=open(log_path, 'w', buffering=1),
             stderr=subprocess.STDOUT
         )
 
@@ -296,7 +295,7 @@ def run_background(prompt: str, provider, session_id: Optional[str] = None, use_
         process = subprocess.Popen(
             cmd,
             stdin=subprocess.DEVNULL,
-            stdout=open(log_path, 'w'),
+            stdout=open(log_path, 'w', buffering=1),
             stderr=subprocess.STDOUT,
             cwd=os.getcwd(),
             start_new_session=True
@@ -583,19 +582,24 @@ def schedule_task(ctx, cron_expr: str, prompt: str, name: Optional[str]):
 
 @cli.command()
 def daemon():
-    """Run scheduler daemon (processes scheduled tasks)"""
-    console.print("[cyan]Starting scheduler daemon...[/cyan]")
+    """[UNIMPLEMENTED] Run scheduler daemon - use system cron instead"""
+    console.print("[yellow]⚠️  Daemon mode is not implemented[/yellow]\n")
 
-    # TODO: Implement proper daemon with schedule library
-    # For now, just show schedules
+    # Show scheduled tasks
     schedules = load_schedules()
 
     if not schedules:
         console.print("[yellow]No scheduled tasks found[/yellow]")
+        console.print("\n[cyan]Recommendation:[/cyan] Use system cron to schedule tasks instead")
+        console.print("Example: [dim]0 9 * * * Tules run 'daily report'[/dim]")
         return
 
-    console.print(f"[green]Found {len(schedules)} scheduled tasks[/green]")
-    console.print("[yellow]Daemon mode not yet implemented - use cron instead[/yellow]")
+    console.print(f"[green]Found {len(schedules)} scheduled tasks:[/green]")
+    for schedule in schedules:
+        console.print(f"  • {schedule.get('name', 'Unnamed')} ({schedule.get('cron', 'N/A')})")
+
+    console.print("\n[cyan]Recommendation:[/cyan] Use system cron to schedule these tasks instead")
+    console.print("Example: [dim]0 9 * * * Tules run 'daily report'[/dim]")
 
 @cli.command()
 @click.option('--logs', is_flag=True, help='Also delete log files')
@@ -611,7 +615,6 @@ def clear(ctx, logs: bool, force: bool):
         return
 
     if not force:
-        from rich.prompt import Confirm
         if not Confirm.ask(f"Clear {len(sessions)} sessions for {provider.get_name()}?"):
             console.print("[yellow]Cancelled[/yellow]")
             return
@@ -622,7 +625,6 @@ def clear(ctx, logs: bool, force: bool):
 
     # Optionally clear log files
     if logs:
-        import glob
         log_files = glob.glob(str(LOGS_DIR / '*.log'))
         for log_file in log_files:
             Path(log_file).unlink()
