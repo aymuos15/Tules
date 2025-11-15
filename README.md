@@ -6,8 +6,14 @@ Run AI agents in headless Docker-sandboxed mode with automatic permission bypass
 
 ## Quick Install
 
+**One-line install:**
 ```bash
-git clone https://github.com/yourusername/Tules.git
+curl -sSL https://raw.githubusercontent.com/aymuos15/Tules/master/install.sh | bash
+```
+
+**Or clone and install:**
+```bash
+git clone https://github.com/aymuos15/Tules.git
 cd Tules
 ./install.sh
 ```

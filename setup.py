@@ -23,7 +23,7 @@ setup(
     description="Background agent runner for Claude Code and Gemini CLI",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/Tules",  # Update with actual repo URL
+    url="https://github.com/aymuos15/Tules",
 
     # Include Python modules
     py_modules=["ai_provider"],
@@ -62,7 +62,7 @@ setup(
     keywords="claude gemini ai cli automation docker background agents",
 
     project_urls={
-        "Bug Reports": "https://github.com/yourusername/Tules/issues",  # Update
-        "Source": "https://github.com/yourusername/Tules",  # Update
+        "Bug Reports": "https://github.com/aymuos15/Tules/issues",
+        "Source": "https://github.com/aymuos15/Tules",
     },
 )

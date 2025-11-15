@@ -4,31 +4,37 @@ Complete command reference for Tules background agent tools.
 
 ## Installation
 
-### Method 1: Automated Install (Recommended)
+### Method 1: One-Line Install (Recommended)
 
 ```bash
-git clone https://github.com/yourusername/Tules.git
-cd Tules
-./install.sh
+curl -sSL https://raw.githubusercontent.com/aymuos15/Tules/master/install.sh | bash
 ```
 
-The installer will:
+This downloads and runs the installer automatically. The installer will:
 - Check Python 3.8+ and dependencies
 - Install required packages
 - Create symlinks in `~/.local/bin`
 - Validate PATH configuration
 - Test installation
 
-### Method 2: Pip Install
+### Method 2: Clone and Install
 
 ```bash
-pip install git+https://github.com/yourusername/Tules.git
+git clone https://github.com/aymuos15/Tules.git
+cd Tules
+./install.sh
 ```
 
-### Method 3: Manual Install
+### Method 3: Pip Install
 
 ```bash
-git clone https://github.com/yourusername/Tules.git
+pip install git+https://github.com/aymuos15/Tules.git
+```
+
+### Method 4: Manual Install
+
+```bash
+git clone https://github.com/aymuos15/Tules.git
 cd Tules
 pip install -r requirements.txt
 chmod +x Tules.py Tules-sessions.py !
