@@ -14,6 +14,7 @@ import signal
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
+from tui_renderer import render_response
 
 import click
 from rich.console import Console
@@ -302,6 +303,12 @@ def run_background(prompt: str, provider, session_id: Optional[str] = None, use_
             start_new_session=True
         )
 
+    # ...get AI response...
+    ai_response = provider.run(prompt)
+    
+    # Render with TUI instead of plain print
+    render_response(ai_response)
+    
     # Save session metadata
     sessions = load_sessions()
     sessions.append({
@@ -319,7 +326,7 @@ def run_background(prompt: str, provider, session_id: Optional[str] = None, use_
     })
     save_sessions(sessions)
 
-    return session_id
+    return ai_response, session_id
 
 def get_session_status(session: Dict) -> str:
     """Check if session process is still running"""

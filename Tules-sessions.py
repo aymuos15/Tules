@@ -25,6 +25,7 @@ from rich.live import Live
 
 # Import AI provider abstraction
 from ai_provider import get_provider, detect_provider, get_all_providers
+from tui_renderer import split_markdown_and_code, render_blocks, TextBlock, CodeBlock
 
 console = Console()
 
@@ -273,7 +274,6 @@ def interactive_session_browser(sessions: List[Session], directory: str):
         return
 
     # Check if stdin is a TTY (required for interactive mode)
-    import sys
     if not sys.stdin.isatty():
         console.print("[yellow]Interactive mode requires a TTY (terminal)[/yellow]")
         console.print("[yellow]Use --list for non-interactive mode, or run directly in a terminal[/yellow]")
@@ -285,15 +285,16 @@ def interactive_session_browser(sessions: List[Session], directory: str):
     selected_idx = 0
     view_mode = 'list'  # 'list', 'detail', or 'logs'
 
-    console.print("\n[bold cyan]Claude Code Session Browser[/bold cyan]")
+    console.print("\n[bold cyan]Session Browser[/bold cyan]")
     console.print("[dim]↑/↓: Navigate | Enter/v: View Details | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
 
     try:
+        # Try Unix/Linux terminal control
         import tty
         import termios
 
         def get_key():
-            """Get a single keypress"""
+            """Get a single keypress (Unix/Linux)"""
             fd = sys.stdin.fileno()
             old_settings = termios.tcgetattr(fd)
             try:
@@ -312,60 +313,77 @@ def interactive_session_browser(sessions: List[Session], directory: str):
             finally:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
-        while True:
-            # Clear screen and show content
-            if view_mode == 'list':
-                console.clear()
-                console.print("\n[bold cyan]Claude Code Session Browser[/bold cyan]")
-                console.print("[dim]↑/↓: Navigate | Enter/v: View Details | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
-                table = create_session_table(sessions, directory, selected_idx)
-                console.print(table)
-            elif view_mode == 'detail':
-                console.clear()
-                console.print("\n[bold cyan]Session Details[/bold cyan]")
-                console.print("[dim]b: Back to List | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
-                panel = create_session_detail(sessions[selected_idx])
-                console.print(panel)
-            elif view_mode == 'logs':
-                console.clear()
-                console.print("\n[bold cyan]Session Logs[/bold cyan]")
-                console.print("[dim]b: Back to List | q: Quit[/dim]\n")
-                log_panel = create_log_popup(sessions[selected_idx])
-                console.print(log_panel)
-
-            # Get input
-            key = get_key()
-
-            if key == 'q':
-                break
-            elif key == 'up' and view_mode == 'list':
-                selected_idx = max(0, selected_idx - 1)
-            elif key == 'down' and view_mode == 'list':
-                selected_idx = min(len(sessions) - 1, selected_idx + 1)
-            elif key in ['\r', '\n', 'v']:  # Enter or 'v'
-                if view_mode == 'list':
-                    view_mode = 'detail'
-                elif view_mode in ['detail', 'logs']:
-                    view_mode = 'list'
-            elif key == 'l':  # View logs
-                view_mode = 'logs'
-            elif key == 'b' and view_mode in ['detail', 'logs']:
-                view_mode = 'list'
-            elif key == 'r':
-                resume_session(sessions[selected_idx], fork=False)
-                break
-            elif key == 'f':
-                resume_session(sessions[selected_idx], fork=True)
-                break
-
     except ImportError:
-        # Fallback: non-interactive mode
-        console.print("[yellow]Interactive mode not available (termios not found)[/yellow]")
-        console.print("[yellow]Use --list to view sessions non-interactively[/yellow]")
+        # Fallback for Windows
+        try:
+            import msvcrt
+
+            def get_key():
+                """Get a single keypress (Windows)"""
+                ch = msvcrt.getch().decode('utf-8', errors='ignore')
+                if ch == '\xe0':  # Arrow key prefix on Windows
+                    ch2 = msvcrt.getch().decode('utf-8', errors='ignore')
+                    if ch2 == 'H':
+                        return 'up'
+                    elif ch2 == 'P':
+                        return 'down'
+                return ch
+
+        except ImportError:
+            # No keyboard control available
+            console.print("[yellow]Interactive mode not available on this system[/yellow]")
+            console.print("[yellow]Use --list to view sessions non-interactively[/yellow]")
+            return
+
+    while True:
+        # Clear screen and show content
+        if view_mode == 'list':
+            console.clear()
+            console.print("\n[bold cyan]Session Browser[/bold cyan]")
+            console.print("[dim]↑/↓: Navigate | Enter/v: View Details | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
+            table = create_session_table(sessions, directory, selected_idx)
+            console.print(table)
+        elif view_mode == 'detail':
+            console.clear()
+            console.print("\n[bold cyan]Session Details[/bold cyan]")
+            console.print("[dim]b: Back to List | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
+            panel = create_session_detail(sessions[selected_idx])
+            console.print(panel)
+        elif view_mode == 'logs':
+            console.clear()
+            console.print("\n[bold cyan]Session Logs[/bold cyan]")
+            console.print("[dim]b: Back to List | q: Quit[/dim]\n")
+            log_panel = create_log_popup(sessions[selected_idx])
+            console.print(log_panel)
+
+        # Get input
+        key = get_key()
+
+        if key == 'q':
+            break
+        elif key == 'up' and view_mode == 'list':
+            selected_idx = max(0, selected_idx - 1)
+        elif key == 'down' and view_mode == 'list':
+            selected_idx = min(len(sessions) - 1, selected_idx + 1)
+        elif key in ['\r', '\n', 'v']:  # Enter or 'v'
+            if view_mode == 'list':
+                view_mode = 'detail'
+            elif view_mode in ['detail', 'logs']:
+                view_mode = 'list'
+        elif key == 'l':  # View logs
+            view_mode = 'logs'
+        elif key == 'b' and view_mode in ['detail', 'logs']:
+            view_mode = 'list'
+        elif key == 'r':
+            resume_session(sessions[selected_idx], fork=False)
+            break
+        elif key == 'f':
+            resume_session(sessions[selected_idx], fork=True)
+            break
 
 @click.command()
 @click.argument('directory', default=None, required=False)
-@click.option('--provider', type=click.Choice(['claude', 'gemini', 'auto'], case_sensitive=False),
+@click.option('--provider', type=click.Choice(['claude', 'gemini', 'mock', 'auto'], case_sensitive=False),
               default='auto', help='AI provider to use (auto-detects if not specified)')
 @click.option('--all', 'show_all', is_flag=True, help='Show sessions from all directories')
 @click.option('--since', help='Filter sessions since date (YYYY-MM-DD)')
@@ -407,9 +425,16 @@ def main(directory: Optional[str],
             console.print(f"[red]Provider '{provider_name}' is not available on this system[/red]")
             return
     else:
+        # Debug: try to get all available providers
+        all_providers = get_all_providers()
+        console.print(f"[dim]Available providers: {[p.get_name() for p in all_providers if p.is_available()]}[/dim]")
+        
         ai_provider = detect_provider()
         if not ai_provider:
             console.print("[red]No AI provider available. Please install claude or gemini-cli.[/red]")
+            console.print("[yellow]Try specifying a provider explicitly:[/yellow]")
+            console.print("  python Tules-sessions.py --provider gemini --list")
+            console.print("  python Tules-sessions.py --provider claude --list")
             return
 
     console.print(f"[dim]Using provider: {ai_provider.get_name()}[/dim]\n")
