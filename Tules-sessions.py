@@ -24,6 +24,21 @@ from ai_provider import get_provider, detect_provider, get_all_providers
 
 console = Console()
 
+TULES_ASCII = r"""
+ _____ _   _ _     _____ ____
+|_   _| | | | |   | ____/ ___|
+  | | | | | | |   |  _| \___ \
+  | | | |_| | |___| |___ ___) |
+  |_|  \___/|_____|_____|____/
+
+  Session Browser (Ts)
+"""
+
+class TulesCommand(click.Command):
+    def format_help(self, ctx, formatter):
+        console.print(f"[cyan]{TULES_ASCII}[/cyan]")
+        super().format_help(ctx, formatter)
+
 # Session data class
 class Session:
     def __init__(self, session_path: Path, provider):
@@ -423,7 +438,7 @@ def interactive_session_browser(sessions: List[Session], directory: str):
         console.print("[yellow]Interactive mode not available (termios not found)[/yellow]")
         console.print("[yellow]Use --list to view sessions non-interactively[/yellow]")
 
-@click.command()
+@click.command(cls=TulesCommand)
 @click.argument('directory', default=None, required=False)
 @click.option('--provider', type=click.Choice(['claude', 'gemini', 'auto'], case_sensitive=False),
               default='auto', help='AI provider to use (auto-detects if not specified)')

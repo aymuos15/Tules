@@ -311,7 +311,22 @@ def get_session_status(session: Dict) -> str:
     except OSError:
         return 'completed'
 
-@click.group()
+TULES_ASCII = r"""
+ _____ _   _ _     _____ ____
+|_   _| | | | |   | ____/ ___|
+  | | | | | | |   |  _| \___ \
+  | | | |_| | |___| |___ ___) |
+  |_|  \___/|_____|_____|____/
+
+  Background Agent Runner (T)
+"""
+
+class TulesGroup(click.Group):
+    def format_help(self, ctx, formatter):
+        console.print(f"[cyan]{TULES_ASCII}[/cyan]")
+        super().format_help(ctx, formatter)
+
+@click.group(cls=TulesGroup)
 @click.option('--provider', type=click.Choice(['claude', 'gemini', 'auto'], case_sensitive=False),
               default='auto', help='AI provider to use (auto-detects if not specified)')
 @click.pass_context
