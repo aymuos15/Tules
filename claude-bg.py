@@ -374,9 +374,26 @@ def run(ctx, prompt: str):
 
 @cli.command()
 @click.option('--all', 'show_all', is_flag=True, help='Show all sessions (including completed)')
-def list(show_all: bool):
-    """List all background agents"""
-    sessions = load_sessions()
+@click.option('--provider-filter', type=str, help='Filter by provider (claude or gemini)')
+def list(show_all: bool, provider_filter: Optional[str]):
+    """List all background agents from all providers"""
+    # Load sessions from all available providers
+    all_sessions = []
+    for provider in get_all_providers():
+        if not provider.is_available():
+            continue
+
+        # Temporarily set config for this provider
+        old_config = (BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR, SCHEDULES_FILE)
+        init_config(provider.get_name())
+
+        provider_sessions = load_sessions()
+        all_sessions.extend(provider_sessions)
+
+        # Restore original config
+        globals()['BG_AGENTS_DIR'], globals()['SESSIONS_FILE'], globals()['LOGS_DIR'], globals()['SCHEDULES_FILE'] = old_config
+
+    sessions = all_sessions
 
     if not sessions:
         console.print("[yellow]No background agents found[/yellow]")
@@ -385,9 +402,12 @@ def list(show_all: bool):
     # Update statuses
     for session in sessions:
         session['status'] = get_session_status(session)
-    save_sessions(sessions)
 
-    # Filter if needed
+    # Apply provider filter if specified
+    if provider_filter:
+        sessions = [s for s in sessions if s.get('provider', 'claude') == provider_filter]
+
+    # Filter by status if needed
     if not show_all:
         sessions = [s for s in sessions if s['status'] == 'running']
 
@@ -428,11 +448,25 @@ def list(show_all: bool):
 @click.option('-f', '--follow', is_flag=True, help='Follow log output (like tail -f)')
 @click.option('-n', '--lines', default=50, help='Number of lines to show (default: 50)')
 def logs(session_id: str, follow: bool, lines: int):
-    """View logs for a specific session"""
-    sessions = load_sessions()
+    """View logs for a specific session from any provider"""
+    # Load sessions from all available providers
+    all_sessions = []
+    for provider in get_all_providers():
+        if not provider.is_available():
+            continue
+
+        # Temporarily set config for this provider
+        old_config = (BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR, SCHEDULES_FILE)
+        init_config(provider.get_name())
+
+        provider_sessions = load_sessions()
+        all_sessions.extend(provider_sessions)
+
+        # Restore original config
+        globals()['BG_AGENTS_DIR'], globals()['SESSIONS_FILE'], globals()['LOGS_DIR'], globals()['SCHEDULES_FILE'] = old_config
 
     # Find matching session (allow partial ID)
-    matching = [s for s in sessions if s['id'].startswith(session_id)]
+    matching = [s for s in all_sessions if s['id'].startswith(session_id)]
 
     if not matching:
         console.print(f"[red]Session not found: {session_id}[/red]")
