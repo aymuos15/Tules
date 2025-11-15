@@ -7,12 +7,8 @@ TULES_BANNER = r"""
    ██║   ██║   ██║██║     █████╗  ███████╗
    ██║   ██║   ██║██║     ██╔══╝  ╚════██║
    ██║   ╚██████╔╝███████╗███████╗███████║
-   ╚═╝    ╚═════╝ ╚══════╝╚══════╝╚══════╝                                        
+   ╚═╝    ╚═════╝ ╚══════╝╚══════╝╚══════╝
 """
-def print_banner() -> None:
-    if sys.stdout.isatty():
-        print(TULES_BANNER)
-        print()  # blank line
 
 def print_banner_tules() -> str:
     """Return banner with 'Background Agent Runner (T)' description."""
