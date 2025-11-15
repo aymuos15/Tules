@@ -1,3 +1,5 @@
+![Team](assests/team.png)
+
 # Tules
 
 AI CLI toolkit for Claude Code and Gemini CLI with background agents, instant responses, and session management.
