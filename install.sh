@@ -23,6 +23,7 @@ NC='\033[0m' # No Color
 
 # Installation paths
 INSTALL_DIR="$HOME/.local/bin"
+PERMANENT_DIR="$HOME/.tules"  # Permanent location for cloned repo
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Repository info for remote installation
@@ -143,12 +144,21 @@ clone_repository() {
     print_success "Repository cloned to $CLONE_DIR"
 }
 
-cleanup_clone() {
-    if [ -d "$CLONE_DIR" ]; then
-        print_info "Cleaning up temporary files..."
-        rm -rf "$CLONE_DIR"
-        print_success "Cleanup complete"
+move_to_permanent_location() {
+    print_info "Moving installation to permanent location..."
+
+    # Remove old permanent directory if it exists
+    if [ -d "$PERMANENT_DIR" ]; then
+        rm -rf "$PERMANENT_DIR"
     fi
+
+    # Move clone to permanent location
+    mv "$CLONE_DIR" "$PERMANENT_DIR"
+
+    # Update SCRIPT_DIR to permanent location
+    SCRIPT_DIR="$PERMANENT_DIR"
+
+    print_success "Installed to $PERMANENT_DIR"
 }
 
 install_dependencies() {
@@ -354,6 +364,8 @@ install() {
         echo ""
         check_git
         clone_repository
+        echo ""
+        move_to_permanent_location
     fi
 
     echo ""
@@ -370,12 +382,6 @@ install() {
 
     echo ""
     verify_installation
-
-    # Cleanup if remote install
-    if [ "$is_remote" = true ]; then
-        echo ""
-        cleanup_clone
-    fi
 }
 
 #------------------------------------------------------------------------------
@@ -390,6 +396,9 @@ uninstall() {
     echo ""
 
     print_warning "This will remove Tules symlinks from $INSTALL_DIR"
+    if [ -d "$PERMANENT_DIR" ]; then
+        print_warning "This will also remove the installation directory: $PERMANENT_DIR"
+    fi
     echo -n "Continue? [y/N]: "
     read -r response
 
@@ -400,6 +409,14 @@ uninstall() {
 
     echo ""
     remove_symlinks
+
+    # Remove permanent directory if it exists
+    if [ -d "$PERMANENT_DIR" ]; then
+        echo ""
+        print_info "Removing installation directory..."
+        rm -rf "$PERMANENT_DIR"
+        print_success "Removed $PERMANENT_DIR"
+    fi
 
     echo ""
     print_success "Uninstall complete"

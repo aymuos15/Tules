@@ -16,8 +16,8 @@ curl -sSL https://raw.githubusercontent.com/aymuos15/Tules/master/install.sh | b
 1. Downloads the installation script directly from GitHub
 2. Automatically detects it's a remote install
 3. Clones the repository to a temporary location
-4. Installs dependencies and creates symlinks
-5. Cleans up temporary files
+4. Moves the repository to `~/.tules` (permanent location)
+5. Installs dependencies and creates symlinks pointing to `~/.tules`
 
 **Limitations:**
 - Only works for **public** repositories
@@ -170,6 +170,19 @@ cd Tules
 ./install.sh  # Re-run installer to update symlinks
 ```
 
+### Issue: Commands work during install but fail after terminal restart
+
+**Cause:** This was a bug in older versions where remote installation deleted the cloned repository after creating symlinks, breaking the links.
+
+**Solution:**
+```bash
+# Re-run the installer (this has been fixed)
+curl -sSL https://raw.githubusercontent.com/aymuos15/Tules/master/install.sh | bash
+
+# The new installer moves the repo to ~/.tules instead of deleting it
+# Symlinks now point to the permanent location
+```
+
 ## Uninstallation
 
 To remove Tules:
@@ -179,13 +192,14 @@ cd Tules
 ./install.sh --uninstall
 ```
 
-**Note:** This only removes symlinks. To completely remove:
+**Note:** For remote installations (via curl), the uninstaller removes both symlinks and the `~/.tules` directory. For local installations, only symlinks are removed.
+
+**Complete removal (if needed):**
 
 ```bash
-# Remove symlinks
+# If you cloned locally and want to remove everything
+cd Tules
 ./install.sh --uninstall
-
-# Remove the repository
 cd ..
 rm -rf Tules
 
@@ -193,8 +207,8 @@ rm -rf Tules
 rm -rf ~/.claude/bg-agents
 rm -rf ~/.gemini/bg-agents
 
-# Remove temporary installation files (if any)
-rm -rf ~/.tules-install-temp
+# Remove remote installation directory (if installed via curl)
+rm -rf ~/.tules
 ```
 
 ## Verification
