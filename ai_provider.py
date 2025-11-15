@@ -340,16 +340,16 @@ def get_provider(name: str) -> Optional[AIProvider]:
 
 
 def detect_provider() -> Optional[AIProvider]:
-    """Auto-detect available provider (prefers Claude)"""
-    # Try Claude first (original default)
-    claude = ClaudeProvider()
-    if claude.is_available():
-        return claude
-
-    # Fall back to Gemini
+    """Auto-detect available provider (prefers Gemini)"""
+    # Try Gemini first (default)
     gemini = GeminiProvider()
     if gemini.is_available():
         return gemini
+
+    # Fall back to Claude
+    claude = ClaudeProvider()
+    if claude.is_available():
+        return claude
 
     return None
 

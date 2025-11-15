@@ -46,9 +46,9 @@ curl -sSL https://raw.githubusercontent.com/aymuos15/Tules/master/install.sh | b
 All tools use a provider abstraction that supports both **Claude Code** and **Gemini CLI**:
 
 **Auto-detection logic**:
-1. Try Claude first (`~/.local/bin/claude`)
-2. Fall back to Gemini if Claude not found
-3. Can be explicitly set with `--provider` flag
+1. Try Gemini first (default provider)
+2. Fall back to Claude if Gemini not found
+3. Can be explicitly set with `--provider` flag (e.g., `--provider claude`)
 
 **Provider-specific differences**:
 
@@ -132,11 +132,11 @@ All tools use a provider abstraction that supports both **Claude Code** and **Ge
 ## Testing the Tools
 
 ```bash
-# Test background agent with default provider (Claude)
+# Test background agent with default provider (Gemini)
 Tules run "what is 2+2?"
 
-# Test with specific provider
-Tules --provider gemini run "what is 2+2?"
+# Test with specific provider (Claude)
+Tules --provider claude run "what is 2+2?"
 
 # Check it ran
 Tules list --all
@@ -149,11 +149,11 @@ Tules-sessions --list
 
 # Test the T alias (same as Tules)
 T run "quick test task"
-T --provider gemini run "test with gemini"
+T --provider claude run "test with claude"
 
 # Clear test sessions (specify provider)
+Tules clear --force  # Clears default (Gemini) sessions
 Tules --provider claude clear --force
-Tules --provider gemini clear --force
 ```
 
 **Note**: Test with both providers if available to ensure multi-provider support works correctly.
