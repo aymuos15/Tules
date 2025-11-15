@@ -14,22 +14,13 @@ from rich.panel import Panel
 
 from tui_renderer import render_response
 from ai_provider import detect_provider
+from banner import print_banner_instant
 
 console = Console()
 
-TULES_ASCII = r"""
- _____ _   _ _     _____ ____
-|_   _| | | | |   | ____/ ___|
-  | | | | | | |   |  _| \___ \
-  | | | |_| | |___| |___ ___) |
-  |_|  \___/|_____|_____|____/
-
-  Instant AI Responses (Ti)
-"""
-
 class TulesCommand(click.Command):
     def format_help(self, ctx, formatter):
-        console.print(f"[cyan]{TULES_ASCII}[/cyan]")
+        console.print(f"[cyan]{print_banner_instant()}[/cyan]")
         super().format_help(ctx, formatter)
 
 def get_ai_response(prompt: str, provider_name: str) -> str:

@@ -21,22 +21,13 @@ from rich.panel import Panel
 
 # Import AI provider abstraction
 from ai_provider import get_provider, detect_provider, get_all_providers
+from banner import print_banner_sessions
 
 console = Console()
 
-TULES_ASCII = r"""
- _____ _   _ _     _____ ____
-|_   _| | | | |   | ____/ ___|
-  | | | | | | |   |  _| \___ \
-  | | | |_| | |___| |___ ___) |
-  |_|  \___/|_____|_____|____/
-
-  Session Browser (Ts)
-"""
-
 class TulesCommand(click.Command):
     def format_help(self, ctx, formatter):
-        console.print(f"[cyan]{TULES_ASCII}[/cyan]")
+        console.print(f"[cyan]{print_banner_sessions()}[/cyan]")
         super().format_help(ctx, formatter)
 
 # Session data class
