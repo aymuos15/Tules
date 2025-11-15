@@ -10,7 +10,6 @@ import sys
 import subprocess
 import click
 from rich.console import Console
-from rich.panel import Panel
 
 from tui_renderer import render_response
 from ai_provider import detect_provider

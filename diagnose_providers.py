@@ -4,7 +4,6 @@
 import subprocess
 import sys
 import os
-from pathlib import Path
 
 def check_command_in_path(cmd: str) -> bool:
     """Check if a command exists in PATH."""
@@ -96,7 +95,7 @@ def main():
 
     print("\n[AI_PROVIDER MODULE]")
     try:
-        from ai_provider import get_provider, get_all_providers, detect_provider
+        from ai_provider import get_all_providers, detect_provider
         
         all_providers = get_all_providers()
         print(f"  Total providers: {len(all_providers)}")

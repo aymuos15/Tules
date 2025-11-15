@@ -1,8 +1,6 @@
 import argparse
 import re
-import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass
 from typing import List, Optional, Union
 
@@ -98,63 +96,6 @@ def normalize_markdown(md: str) -> str:
         else:
             lines.append(line)
     return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# Diagnostics using Ruff (fast linter)
-# ---------------------------------------------------------------------------
-
-def get_python_diagnostics(code: str) -> Optional[List[tuple]]:
-    """
-    Run `ruff check` on the given Python code and return a list of
-    (line, column, message) diagnostics.
-
-    Returns None if ruff is not installed or something goes wrong.
-    """
-    try:
-        tmp = tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8")
-        tmp.write(code)
-        tmp_path = tmp.name
-        tmp.close()
-    except Exception:
-        return None
-
-    try:
-        result = subprocess.run(
-            ["ruff", "check", tmp_path],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except FileNotFoundError:
-        # ruff not installed / not on PATH
-        return None
-
-    # Ruff: 0 = no issues, 1 = issues, others = error
-    if result.returncode not in (0, 1):
-        return None
-
-    stdout = (result.stdout or "").strip()
-    if not stdout:
-        return None
-
-    diags: List[tuple] = []
-    # Typical Ruff line format (non-pretty mode):
-    #   path/to/file.py:4:1: E999 IndentationError: expected an indented block
-    line_pattern = re.compile(r"^.*:(\d+):(\d+):\s*([A-Z]\d+)\s*(.*)$")
-
-    for line in stdout.splitlines():
-        m = line_pattern.match(line)
-        if not m:
-            continue
-        line_no = int(m.group(1))
-        col_no = int(m.group(2))
-        code_id = m.group(3)
-        msg_tail = m.group(4).strip()
-        msg = f"{code_id} {msg_tail}"
-        diags.append((line_no, col_no, msg))
-
-    return diags or None
 
 
 # ---------------------------------------------------------------------------

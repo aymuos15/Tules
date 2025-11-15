@@ -7,7 +7,6 @@ Supports both Claude Code and Gemini CLI backends.
 
 import os
 import sys
-import json
 import subprocess
 import re
 from pathlib import Path
@@ -20,7 +19,7 @@ from rich.table import Table
 from rich.panel import Panel
 
 # Import AI provider abstraction
-from ai_provider import get_provider, detect_provider, get_all_providers
+from ai_provider import get_provider, detect_provider
 
 console = Console()
 
