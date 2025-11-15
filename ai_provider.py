@@ -240,17 +240,21 @@ class GeminiProvider(AIProvider):
     def get_run_command(self, prompt: str, session_id: str, output_format: str = 'text') -> List[str]:
         # Note: Gemini doesn't support custom session IDs
         # The session_id parameter is ignored but kept for API compatibility
+        # Use full path since we mount ~/.npm-global and HOME is set in container
+        binary_path = f'{Path.home()}/.npm-global/bin/gemini'
         return [
-            'gemini', '-p', prompt,
+            binary_path, '-p', prompt,
             '-y',  # Auto-accept (yolo mode) - equivalent to --dangerously-skip-permissions
             '-o', output_format
         ]
 
     def get_docker_mounts(self, cwd: str, home: str, binary_path: str) -> List[str]:
+        # Mount entire npm-global directory to ensure all dependencies are available
+        # Gemini CLI is an npm package that requires its full node_modules tree
         return [
             '-v', f'{cwd}:/workspace',
             '-v', f'{home}/.gemini:{home}/.gemini',
-            '-v', f'{binary_path}:/usr/local/bin/gemini:ro',
+            '-v', f'{home}/.npm-global:{home}/.npm-global:ro',
         ]
 
     def _hash_directory(self, path: str) -> str:
