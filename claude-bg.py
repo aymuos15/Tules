@@ -66,6 +66,47 @@ def save_schedules(schedules: List[Dict]):
     ensure_dirs()
     SCHEDULES_FILE.write_text(json.dumps(schedules, indent=2))
 
+def check_git_repo() -> bool:
+    """Check if current directory is a git repository"""
+    try:
+        subprocess.run(['git', 'rev-parse', '--git-dir'], capture_output=True, check=True, cwd=os.getcwd())
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+def get_current_branch() -> Optional[str]:
+    """Get the current git branch name"""
+    try:
+        result = subprocess.run(['git', 'branch', '--show-current'], capture_output=True, text=True, check=True, cwd=os.getcwd())
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+
+def sanitize_branch_name(prompt: str, session_id: str) -> str:
+    """Generate a sanitized branch name from prompt and session ID"""
+    # Take first 40 chars of prompt, remove special chars, convert to kebab-case
+    import re
+    sanitized = re.sub(r'[^a-zA-Z0-9\s-]', '', prompt[:40])
+    sanitized = re.sub(r'\s+', '-', sanitized).strip('-').lower()
+
+    # Ensure it's not empty
+    if not sanitized:
+        sanitized = 'task'
+
+    # Format: claude-bg/<prompt>-<short-session-id>
+    short_id = session_id[:8]
+    return f'claude-bg/{sanitized}-{short_id}'
+
+def create_git_branch(branch_name: str) -> bool:
+    """Create and checkout a new git branch"""
+    try:
+        # Create and checkout new branch
+        subprocess.run(['git', 'checkout', '-b', branch_name], capture_output=True, check=True, cwd=os.getcwd())
+        return True
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]Failed to create branch: {e.stderr.decode()}[/red]")
+        return False
+
 def check_docker() -> bool:
     """Check if Docker is available and running"""
     try:
@@ -111,13 +152,26 @@ def run_background(prompt: str, session_id: Optional[str] = None, use_sandbox: b
     Args:
         prompt: The prompt to run
         session_id: Optional session ID (will generate if not provided)
-        use_sandbox: Whether to use bubblewrap sandboxing
+        use_sandbox: Whether to use Docker sandboxing
 
     Returns:
         Session ID
     """
     if session_id is None:
         session_id = str(uuid.uuid4())
+
+    # Check if we're in a git repo and create a branch
+    branch_name = None
+    original_branch = None
+    if check_git_repo():
+        original_branch = get_current_branch()
+        branch_name = sanitize_branch_name(prompt, session_id)
+
+        if not create_git_branch(branch_name):
+            console.print("[yellow]Warning: Failed to create branch, continuing without branch isolation[/yellow]")
+            branch_name = None
+    else:
+        console.print("[yellow]Warning: Not a git repository, running without branch isolation[/yellow]")
 
     # Create log file
     log_path = LOGS_DIR / f'{session_id}.log'
@@ -209,7 +263,9 @@ def run_background(prompt: str, session_id: Optional[str] = None, use_sandbox: b
         'started': datetime.now().isoformat(),
         'cwd': os.getcwd(),
         'log_path': str(log_path),
-        'sandboxed': use_sandbox and check_docker()
+        'sandboxed': use_sandbox and check_docker(),
+        'branch': branch_name,
+        'original_branch': original_branch
     })
     save_sessions(sessions)
 
@@ -233,6 +289,10 @@ def cli():
       claude-bg list --all
       claude-bg logs a1b2c3d4
       claude-bg clear --force
+
+    \b
+    Each task runs in its own git branch (claude-bg/<task-description>-<id>)
+    Use standard git commands to review and merge branches when complete.
     """
     pass
 
@@ -244,10 +304,19 @@ def run(prompt: str):
 
     session_id = run_background(prompt, use_sandbox=True)
 
+    # Get session info to display branch
+    sessions = load_sessions()
+    session = next((s for s in sessions if s['id'] == session_id), None)
+
+    branch_info = ""
+    if session and session.get('branch'):
+        branch_info = f"Branch: [magenta]{session['branch']}[/magenta]\n"
+
     console.print(Panel(
         f"[green]Background agent started[/green]\n\n"
         f"Session ID: [cyan]{session_id}[/cyan]\n"
         f"Prompt: {prompt[:60]}{'...' if len(prompt) > 60 else ''}\n"
+        f"{branch_info}"
         f"Sandboxed: {'Yes (Docker)' if check_docker() else 'No (Docker not available)'}\n\n"
         f"View logs: [yellow]claude-bg logs {session_id[:8]}[/yellow]",
         title="🤖 Agent Started",
@@ -281,15 +350,22 @@ def list(show_all: bool):
     table.add_column("Session ID", style="cyan")
     table.add_column("Status", style="green")
     table.add_column("Prompt", style="white")
+    table.add_column("Branch", style="magenta")
     table.add_column("Started", style="yellow")
-    table.add_column("Sandboxed", style="magenta")
+    table.add_column("Sandboxed", style="blue")
 
     for session in sessions:
         status_color = "green" if session['status'] == 'running' else "dim"
+        branch_display = session.get('branch', 'N/A')
+        if branch_display and branch_display != 'N/A':
+            # Show just the last part after claude-bg/
+            branch_display = branch_display.split('/')[-1][:20]
+
         table.add_row(
             session['id'][:8],
             f"[{status_color}]{session['status']}[/{status_color}]",
-            session['prompt'][:40],
+            session['prompt'][:30],
+            branch_display if branch_display else "N/A",
             datetime.fromisoformat(session['started']).strftime("%Y-%m-%d %H:%M"),
             "Yes" if session.get('sandboxed', False) else "No"
         )
