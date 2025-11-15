@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains standalone Python CLI tools for managing **Claude Code and Gemini CLI** background agents and sessions:
+This repository contains standalone Python CLI tools for managing **Claude Code and Gemini CLI** background agents, instant responses, and sessions:
 
 1. **`Tules.py`** (aliased as `T`) - Run AI agents in headless Docker-sandboxed mode with automatic permission bypass
-2. **`Tules-sessions.py`** - Interactive TUI for viewing and managing AI sessions, scoped by working directory
+2. **`Tules-instant.py`** (aliased as `Ti`) - Get instant AI responses with rich markdown rendering and syntax highlighting
+3. **`Tules-sessions.py`** - Interactive TUI for viewing and managing AI sessions, scoped by working directory
 
 All tools support both **Claude Code** and **Gemini CLI** backends with automatic provider detection. They are designed to be minimal, single-file executables that rely only on Rich (TUI), Click (CLI), and a provider abstraction layer (`ai_provider.py`).
 
@@ -24,11 +25,13 @@ All tools support both **Claude Code** and **Gemini CLI** backends with automati
 pip install -r requirements.txt
 
 # Make scripts executable
-chmod +x Tules.py Tules-sessions.py
+chmod +x Tules.py Tules-instant.py Tules-sessions.py
 
 # Create symlinks (tools are installed to ~/.local/bin/)
 ln -sf $(pwd)/Tules.py ~/.local/bin/Tules
 ln -sf $(pwd)/Tules.py ~/.local/bin/T
+ln -sf $(pwd)/Tules-instant.py ~/.local/bin/Tules-instant
+ln -sf $(pwd)/Tules-instant.py ~/.local/bin/Ti
 ln -sf $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
 ```
 
@@ -67,6 +70,64 @@ All tools use a provider abstraction that supports both **Claude Code** and **Ge
 - Gemini: `~/.gemini/bg-agents/`
 
 ## Architecture
+
+### `Tules-instant` - Instant AI Response Tool
+
+**Key Design Pattern**: CLI command wrapper with rich TUI rendering
+
+**Purpose**: Provides quick, interactive AI responses without the overhead of background agents or Docker containers. Ideal for one-off questions, quick code explanations, or instant help.
+
+**Execution Flow**:
+1. Accept prompt from command line argument or stdin
+2. Auto-detect available AI provider (Gemini → Claude fallback)
+3. Execute provider CLI command (`gemini -p` or `claude -p`)
+4. Capture stdout output
+5. Parse markdown and code blocks
+6. Render with syntax highlighting and rich formatting
+
+**Key Features**:
+- **Rich Markdown Rendering**: Via `tui_renderer.py` module
+- **Syntax Highlighting**: Code blocks rendered with language-specific highlighting
+- **No Docker Required**: Runs provider CLIs directly
+- **No API Keys Needed**: Uses existing CLI authentication
+- **Stdin Support**: Pipe prompts from other commands
+- **Provider Selection**: Auto-detect or explicit `--provider` flag
+
+**Usage Examples**:
+```bash
+# Quick question
+Ti "what is 2+2?"
+
+# Code explanation
+Ti "explain Python decorators"
+
+# Pipe from stdin
+echo "write a haiku about coding" | Ti --stdin
+
+# Explicit provider
+Ti --provider claude "explain async/await"
+
+# Long form
+Tules-instant "compare git merge vs rebase"
+```
+
+**TUI Renderer** (`tui_renderer.py`):
+- Splits markdown text and fenced code blocks
+- Renders code with Rich Syntax highlighting (monokai theme)
+- Normalizes headings to bold (prevents Rich centering)
+- Displays code in panels with line numbers
+- Supports Python diagnostics via Ruff linter integration
+
+**Comparison with Tules**:
+
+| Feature | Tules (T) | Tules-instant (Ti) |
+|---------|-----------|-------------------|
+| Execution | Background Docker | Direct CLI |
+| Response time | Slower (container startup) | Instant |
+| Sandboxing | Full Docker isolation | None |
+| Output | Plain logs | Rich formatted |
+| Use case | Long-running tasks | Quick questions |
+| Permissions | Auto-bypass in container | Uses CLI defaults |
 
 ### `Tules` - Background Agent Runner
 
@@ -128,9 +189,44 @@ All tools use a provider abstraction that supports both **Claude Code** and **Ge
 - Content search: Regex on summary field
 - Type filters: `--agents-only`, `--main-only`
 
+### `diagnose_providers.py` - Provider Diagnostic Tool
+
+**Purpose**: Troubleshoot AI provider installation and availability issues.
+
+**What it checks**:
+1. **CLI Command Availability**: Checks if `gemini` and `claude` commands exist in PATH
+2. **Command Execution**: Tests if commands run successfully with `--version` flag
+3. **Python SDK Detection**: Checks for `google.generativeai` and `anthropic` packages
+4. **Provider Integration**: Shows which provider will be auto-detected by tools
+
+**Usage**:
+```bash
+# Run diagnostic
+python3 diagnose_providers.py
+
+# Expected output shows:
+# - Which commands are found/missing
+# - Version information if available
+# - SDK package status
+# - Which provider will be selected
+```
+
+**Common Issues Detected**:
+- CLI not in PATH (shows installation suggestions)
+- CLI installed but not executable
+- SDK packages missing (shows pip install commands)
+- No providers available (shows setup instructions)
+
+**Integration**: Used internally by `Tules-instant` for provider auto-detection fallback messaging.
+
 ## Testing the Tools
 
 ```bash
+# Test instant responses (new!)
+Ti "what is 2+2?"
+Ti "explain Python list comprehensions"
+Tules-instant --provider claude "write a haiku"
+
 # Test background agent with default provider (Gemini)
 Tules run "what is 2+2?"
 
@@ -153,6 +249,9 @@ T --provider claude run "test with claude"
 # Clear test sessions (specify provider)
 Tules clear --force  # Clears default (Gemini) sessions
 Tules --provider claude clear --force
+
+# Test stdin piping with instant
+echo "explain git rebase" | Ti --stdin
 ```
 
 **Note**: Test with both providers if available to ensure multi-provider support works correctly.
@@ -166,6 +265,21 @@ Tules --provider claude clear --force
 3. Keep docstring concise (examples only in main `cli()` docstring)
 4. Use `console.print()` with Rich formatting for output
 5. Follow existing patterns: Table for lists, Panel for single results
+
+### Modifying TUI Renderer
+
+**File**: `tui_renderer.py`
+
+To customize rendering:
+- `split_markdown_and_code()`: Modify regex pattern for code block detection
+- `render_blocks()`: Change styling, themes, or panel formatting
+- Code theme: Currently uses `monokai`, can change in `Syntax()` call
+- Line numbers: Toggle via `line_numbers` parameter in `Syntax()`
+
+**Adding new renderer features**:
+1. Add new block type to `Block` union type
+2. Update `split_markdown_and_code()` to detect new pattern
+3. Add rendering logic in `render_blocks()`
 
 ### Modifying Docker Configuration
 

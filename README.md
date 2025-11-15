@@ -1,8 +1,11 @@
 # Tules
 
-Background agent runner for Claude Code and Gemini CLI.
+AI CLI toolkit for Claude Code and Gemini CLI with background agents, instant responses, and session management.
 
-Run AI agents in headless Docker-sandboxed mode with automatic permission bypass.
+Three powerful tools in one package:
+- **Tules (T)**: Background agents in Docker with automatic permission bypass
+- **Tules-instant (Ti)**: Instant AI responses with rich markdown rendering
+- **Tules-sessions**: Interactive session browser and manager
 
 ## Quick Install
 
@@ -20,6 +23,31 @@ cd Tules
 
 ## Usage
 
+### Instant Responses (New!)
+
+Get quick AI answers with beautiful formatting:
+
+```bash
+# Quick questions (use Tules-instant or Ti - they're the same)
+Ti "what is 2+2?"
+Ti "explain Python decorators"
+
+# Code explanations with syntax highlighting
+Ti "show me a quicksort implementation in Python"
+
+# Specific provider
+Ti --provider claude "write a haiku about coding"
+
+# Pipe from stdin
+echo "explain git rebase" | Ti --stdin
+```
+
+**Note:** `Ti` is a short alias for `Tules-instant` - instant, rich-formatted AI responses!
+
+### Background Agents
+
+For long-running tasks in Docker:
+
 ```bash
 # Run background task (use Tules or T - they're the same)
 Tules run "analyze this codebase"
@@ -35,20 +63,52 @@ T list
 
 # View logs
 Tules logs <session-id>
-
-# Manage sessions
-Tules-sessions
 ```
 
-**Note:** `T` is just a short alias for `Tules` - use whichever you prefer!
+**Note:** `T` is a short alias for `Tules` - background agent runner!
+
+### Session Management
+
+Browse and manage AI sessions:
+
+```bash
+# Manage sessions
+Tules-sessions
+
+# List sessions for current directory
+Tules-sessions --list
+
+# Filter agent sessions only
+Tules-sessions --agents-only
+```
 
 ## Features
 
+### Tules-instant (Ti)
+- **Rich Markdown Rendering** - Beautiful formatted output with syntax highlighting
+- **Code Highlighting** - Language-specific syntax coloring for code blocks
+- **No Docker Overhead** - Direct CLI execution for instant responses
+- **Stdin Support** - Pipe prompts from other commands
+- **Multi-provider** - Auto-detect Gemini or Claude
+
+### Tules (T)
+- **Background Agents** - Run long tasks in Docker containers
+- **Docker Sandboxing** - Fully isolated execution environment
+- **Auto Permissions** - Skip permission prompts automatically
+- **Log Streaming** - Real-time log capture and viewing
+- **Session Tracking** - Monitor running and completed agents
+
+### Tules-sessions
+- **Interactive Browser** - TUI for browsing sessions
+- **Session Resume** - Continue previous conversations
+- **Session Forking** - Branch from existing sessions
+- **Log Viewing** - Inspect agent logs without leaving TUI
+- **Smart Filtering** - Filter by date, type, content
+
+### Universal
 - **Multi-provider** - Gemini CLI and Claude Code support
 - **Auto-detection** - Automatically finds available AI provider (defaults to Gemini)
-- **Docker sandboxing** - Isolated execution environment
-- **No prompts** - Auto-skips permission prompts
-- **Session management** - View, resume, and fork sessions
+- **Provider Selection** - Explicit `--provider` flag for control
 
 ## Requirements
 
