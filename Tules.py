@@ -33,11 +33,10 @@ console = Console()
 BG_AGENTS_DIR = None
 SESSIONS_FILE = None
 LOGS_DIR = None
-SCHEDULES_FILE = None
 
 def init_config(provider_name: Optional[str] = None):
     """Initialize configuration based on provider"""
-    global BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR, SCHEDULES_FILE
+    global BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR
 
     # Get provider
     if provider_name:
@@ -58,7 +57,6 @@ def init_config(provider_name: Optional[str] = None):
     BG_AGENTS_DIR = provider.get_bg_agents_dir()
     SESSIONS_FILE = BG_AGENTS_DIR / 'sessions.json'
     LOGS_DIR = BG_AGENTS_DIR / 'logs'
-    SCHEDULES_FILE = BG_AGENTS_DIR / 'schedules.json'
 
     return provider
 
@@ -68,8 +66,6 @@ def ensure_dirs():
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
     if not SESSIONS_FILE.exists():
         SESSIONS_FILE.write_text('[]')
-    if not SCHEDULES_FILE.exists():
-        SCHEDULES_FILE.write_text('[]')
 
 def load_sessions() -> List[Dict]:
     """Load session metadata"""
@@ -83,19 +79,6 @@ def save_sessions(sessions: List[Dict]):
     """Save session metadata"""
     ensure_dirs()
     SESSIONS_FILE.write_text(json.dumps(sessions, indent=2))
-
-def load_schedules() -> List[Dict]:
-    """Load scheduled tasks"""
-    ensure_dirs()
-    try:
-        return json.loads(SCHEDULES_FILE.read_text())
-    except:
-        return []
-
-def save_schedules(schedules: List[Dict]):
-    """Save scheduled tasks"""
-    ensure_dirs()
-    SCHEDULES_FILE.write_text(json.dumps(schedules, indent=2))
 
 def check_git_repo() -> bool:
     """Check if current directory is a git repository"""
@@ -396,14 +379,14 @@ def list(show_all: bool, provider_filter: Optional[str]):
             continue
 
         # Temporarily set config for this provider
-        old_config = (BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR, SCHEDULES_FILE)
+        old_config = (BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR)
         init_config(provider.get_name())
 
         provider_sessions = load_sessions()
         all_sessions.extend(provider_sessions)
 
         # Restore original config
-        globals()['BG_AGENTS_DIR'], globals()['SESSIONS_FILE'], globals()['LOGS_DIR'], globals()['SCHEDULES_FILE'] = old_config
+        globals()['BG_AGENTS_DIR'], globals()['SESSIONS_FILE'], globals()['LOGS_DIR'] = old_config
 
     sessions = all_sessions
 
@@ -468,14 +451,14 @@ def logs(session_id: str, follow: bool, lines: int):
             continue
 
         # Temporarily set config for this provider
-        old_config = (BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR, SCHEDULES_FILE)
+        old_config = (BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR)
         init_config(provider.get_name())
 
         provider_sessions = load_sessions()
         all_sessions.extend(provider_sessions)
 
         # Restore original config
-        globals()['BG_AGENTS_DIR'], globals()['SESSIONS_FILE'], globals()['LOGS_DIR'], globals()['SCHEDULES_FILE'] = old_config
+        globals()['BG_AGENTS_DIR'], globals()['SESSIONS_FILE'], globals()['LOGS_DIR'] = old_config
 
     # Find matching session (allow partial ID)
     matching = [s for s in all_sessions if s['id'].startswith(session_id)]
@@ -547,59 +530,6 @@ def kill(ctx, session_id: str):
         console.print(f"[yellow]Session {session['id'][:8]} is not running[/yellow]")
     except Exception as e:
         console.print(f"[red]Error killing session: {e}[/red]")
-
-@cli.command()
-@click.argument('cron_expr')
-@click.argument('prompt')
-@click.option('--name', help='Name for this scheduled task')
-@click.pass_context
-def schedule_task(ctx, cron_expr: str, prompt: str, name: Optional[str]):
-    """Schedule a task (cron syntax: 'MIN HOUR DAY MONTH DAYOFWEEK')"""
-    provider = ctx.obj['provider']
-    schedules = load_schedules()
-
-    schedule_id = str(uuid.uuid4())
-    schedules.append({
-        'id': schedule_id,
-        'name': name or f'Task {len(schedules) + 1}',
-        'cron': cron_expr,
-        'prompt': prompt,
-        'provider': provider.get_name(),
-        'created': datetime.now().isoformat()
-    })
-    save_schedules(schedules)
-
-    console.print(Panel(
-        f"[green]Scheduled task created[/green]\n\n"
-        f"Provider: [blue]{provider.get_name()}[/blue]\n"
-        f"Name: {name or f'Task {len(schedules)}'}\n"
-        f"Cron: {cron_expr}\n"
-        f"Prompt: {prompt[:60]}{'...' if len(prompt) > 60 else ''}\n\n"
-        f"[yellow]Run 'Tules daemon' to start the scheduler[/yellow]",
-        title="📅 Task Scheduled",
-        border_style="green"
-    ))
-
-@cli.command()
-def daemon():
-    """[UNIMPLEMENTED] Run scheduler daemon - use system cron instead"""
-    console.print("[yellow]⚠️  Daemon mode is not implemented[/yellow]\n")
-
-    # Show scheduled tasks
-    schedules = load_schedules()
-
-    if not schedules:
-        console.print("[yellow]No scheduled tasks found[/yellow]")
-        console.print("\n[cyan]Recommendation:[/cyan] Use system cron to schedule tasks instead")
-        console.print("Example: [dim]0 9 * * * Tules run 'daily report'[/dim]")
-        return
-
-    console.print(f"[green]Found {len(schedules)} scheduled tasks:[/green]")
-    for schedule in schedules:
-        console.print(f"  • {schedule.get('name', 'Unnamed')} ({schedule.get('cron', 'N/A')})")
-
-    console.print("\n[cyan]Recommendation:[/cyan] Use system cron to schedule these tasks instead")
-    console.print("Example: [dim]0 9 * * * Tules run 'daily report'[/dim]")
 
 @cli.command()
 @click.option('--logs', is_flag=True, help='Also delete log files')

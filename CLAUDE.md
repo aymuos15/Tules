@@ -91,7 +91,6 @@ All tools use a provider abstraction that supports both **Claude Code** and **Ge
 **Data Storage**:
 - Session metadata: `~/.claude/bg-agents/sessions.json`
 - Logs: `~/.claude/bg-agents/logs/<session-id>.log`
-- Schedules: `~/.claude/bg-agents/schedules.json`
 
 ### `Tules-sessions` - Session Manager TUI
 
@@ -194,9 +193,9 @@ To modify filtering: Update `filter_sessions()` function with additional criteri
 
 ## Known Limitations
 
-1. **Scheduler daemon**: Not implemented - `daemon` command exists but doesn't run (use system cron instead)
-2. **Interactive TUI**: Requires `termios` (Unix-only, won't work on Windows). Gracefully falls back to static mode when TTY not available.
-3. **Docker-only sandboxing**: Removed bubblewrap support in favor of Docker
-4. **Session summary**: Most sessions show "No summary" (depends on AI CLI version storing summary in first line)
-5. **Gemini limitations**: Session forking not supported (Claude Code only feature)
-6. **Log viewing**: Only available for background agent sessions (regular interactive sessions don't generate log files)
+1. **Interactive TUI**: Requires `termios` (Unix-only, won't work on Windows). Gracefully falls back to static mode when TTY not available.
+2. **Docker-only sandboxing**: Removed bubblewrap support in favor of Docker
+3. **Session summary**: Most sessions show "No summary" (depends on AI CLI version storing summary in first line)
+4. **Gemini limitations**: Session forking not supported (Claude Code only feature)
+5. **Log viewing**: Only available for background agent sessions (regular interactive sessions don't generate log files)
+6. **Task scheduling**: For scheduled/recurring tasks, use system cron (e.g., `0 9 * * * Tules run "daily report"`)
