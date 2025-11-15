@@ -6,9 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository contains standalone Python CLI tools for managing **Claude Code and Gemini CLI** background agents and sessions:
 
-1. **`Tules.py`** - Run AI agents in headless Docker-sandboxed mode with automatic permission bypass
+1. **`Tules.py`** (aliased as `?`) - Run AI agents in headless Docker-sandboxed mode with automatic permission bypass
 2. **`Tules-sessions.py`** - Interactive TUI for viewing and managing AI sessions, scoped by working directory
-3. **`!`** - Ultra-short wrapper command for minimal typing
 
 All tools support both **Claude Code** and **Gemini CLI** backends with automatic provider detection. They are designed to be minimal, single-file executables that rely only on Rich (TUI), Click (CLI), and a provider abstraction layer (`ai_provider.py`).
 
@@ -25,12 +24,12 @@ All tools support both **Claude Code** and **Gemini CLI** backends with automati
 pip install -r requirements.txt
 
 # Make scripts executable
-chmod +x Tules.py Tules-sessions.py !
+chmod +x Tules.py Tules-sessions.py
 
 # Create symlinks (tools are installed to ~/.local/bin/)
 ln -sf $(pwd)/Tules.py ~/.local/bin/Tules
+ln -sf $(pwd)/Tules.py ~/.local/bin/?
 ln -sf $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
-ln -sf $(pwd)/! ~/.local/bin/!
 ```
 
 **First-time Docker setup**: `Tules` will automatically build Docker images (`tules-claude:latest`, `tules-gemini:latest`) on first run.
@@ -148,9 +147,9 @@ Tules logs <session-id>
 # Test session viewer (shows sessions for current directory)
 Tules-sessions --list
 
-# Test the ! wrapper
-\! "quick test task"
-\! !gemini "test with gemini"
+# Test the ? alias (same as Tules)
+? run "quick test task"
+? --provider gemini run "test with gemini"
 
 # Clear test sessions (specify provider)
 Tules --provider claude clear --force

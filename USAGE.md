@@ -37,18 +37,18 @@ pip install git+https://github.com/aymuos15/Tules.git
 git clone https://github.com/aymuos15/Tules.git
 cd Tules
 pip install -r requirements.txt
-chmod +x Tules.py Tules-sessions.py !
+chmod +x Tules.py Tules-sessions.py
 ln -s $(pwd)/Tules.py ~/.local/bin/Tules
+ln -s $(pwd)/Tules.py ~/.local/bin/?
 ln -s $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
-ln -s $(pwd)/! ~/.local/bin/!
 ```
 
 ### Verify Installation
 
 ```bash
 Tules --help
+? --help          # ? is just an alias for Tules
 Tules-sessions --help
-\! --help
 ```
 
 If commands are not found, ensure `~/.local/bin` is in your PATH.
