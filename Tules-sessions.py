@@ -18,7 +18,6 @@ import click
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.syntax import Syntax
 
 # Import AI provider abstraction
 from ai_provider import get_provider, detect_provider, get_all_providers
@@ -160,93 +159,6 @@ def create_session_table(sessions: List[Session], directory: str, selected_idx: 
         )
 
     return table
-
-def create_session_detail(session: Session) -> Panel:
-    """Create a Rich panel for session details"""
-    messages = session.get_full_conversation()
-
-    # Build conversation text - show ALL messages with more content
-    conversation = []
-    for idx, msg in enumerate(messages):
-        role = msg.get('message', {}).get('role', 'unknown')
-        content = msg.get('message', {}).get('content', [])
-
-        # Extract text content
-        text_parts = []
-        for part in content:
-            if isinstance(part, dict) and part.get('type') == 'text':
-                text_parts.append(part.get('text', ''))
-
-        if text_parts:
-            text = '\n'.join(text_parts)
-            # Show first 1000 chars instead of 200, add message number
-            truncated = text[:1000]
-            if len(text) > 1000:
-                truncated += f"\n[dim]... (truncated, {len(text)} chars total)[/dim]"
-            conversation.append(f"[bold cyan]Message {idx + 1} - {role.upper()}:[/bold cyan]\n{truncated}\n")
-
-    detail_text = f"""[bold]Session ID:[/bold] {session.id}
-[bold]Type:[/bold] {'Agent' if session.is_agent else 'Main Session'}
-[bold]Summary:[/bold] {session.summary}
-[bold]Working Directory:[/bold] {session.cwd or 'Unknown'}
-[bold]Git Branch:[/bold] {session.git_branch or 'Unknown'}
-[bold]Last Modified:[/bold] {session.timestamp.strftime("%Y-%m-%d %H:%M:%S")}
-[bold]Total Messages:[/bold] {len(messages)}
-
-{'─' * 80}
-[bold]Full Conversation:[/bold]
-
-{chr(10).join(conversation)}
-"""
-
-    return Panel(
-        detail_text,
-        title=f"Session Details: {session.id[:8]} ({len(messages)} messages)",
-        border_style="cyan"
-    )
-
-def create_log_popup(session: Session, lines: int = 100) -> Optional[Panel]:
-    """Create a centered popup panel for displaying logs"""
-    log_path = session.get_log_path()
-
-    if not log_path:
-        return Panel(
-            "[yellow]No log file found for this session.[/yellow]\n\n"
-            "[dim]Note: Only background agent sessions have log files.[/dim]",
-            title=f"Logs: {session.id[:8] if session.id else 'unknown'}",
-            border_style="yellow"
-        )
-
-    try:
-        # Read last N lines of log file
-        result = subprocess.run(
-            ['tail', f'-n{lines}', str(log_path)],
-            capture_output=True,
-            text=True
-        )
-
-        if result.returncode != 0:
-            return Panel(
-                f"[red]Error reading log file:[/red]\n{result.stderr}",
-                title=f"Logs: {session.id[:8] if session.id else 'unknown'}",
-                border_style="red"
-            )
-
-        log_content = result.stdout if result.stdout else "[dim]Log file is empty[/dim]"
-
-        return Panel(
-            log_content,
-            title=f"Logs: {session.id[:8] if session.id else 'unknown'} (last {lines} lines)",
-            border_style="green",
-            subtitle="[dim]Press 'b' to go back[/dim]"
-        )
-
-    except Exception as e:
-        return Panel(
-            f"[red]Error reading log file:[/red]\n{str(e)}",
-            title=f"Logs: {session.id[:8] if session.id else 'unknown'}",
-            border_style="red"
-        )
 
 def resume_session(session: Session, fork: bool = False):
     """Resume a session in the current terminal"""
