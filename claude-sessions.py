@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-claude-sessions - Session manager TUI for Claude Code
-View and manage Claude Code sessions (folder-based).
+claude-sessions - Session manager TUI for Claude Code and Gemini CLI
+View and manage AI sessions (folder-based).
+Supports both Claude Code and Gemini CLI backends.
 """
 
 import os
@@ -22,98 +23,74 @@ from rich.syntax import Syntax
 from rich.layout import Layout
 from rich.live import Live
 
+# Import AI provider abstraction
+from ai_provider import get_provider, detect_provider, get_all_providers
+
 console = Console()
 
 # Session data class
 class Session:
-    def __init__(self, session_id: str, path: Path):
-        self.id = session_id
-        self.path = path
-        self.is_agent = session_id.startswith('agent-')
+    def __init__(self, session_path: Path, provider):
+        """Initialize session from file using provider abstraction"""
+        self.path = session_path
+        self.provider = provider
 
-        # Parse first line for metadata
-        self.summary = 'No summary'
-        self.cwd = None
-        self.git_branch = None
-        self.timestamp = datetime.fromtimestamp(path.stat().st_mtime)
+        # Parse metadata using provider
+        metadata = provider.parse_session_file(session_path)
 
-        try:
-            with open(path, 'r') as f:
-                first_line = f.readline().strip()
-                if first_line:
-                    data = json.loads(first_line)
-                    self.summary = data.get('summary', 'No summary')
-                    self.cwd = data.get('cwd')
-                    self.git_branch = data.get('gitBranch')
-        except (json.JSONDecodeError, IOError):
-            pass
+        self.id = metadata['id']
+        self.summary = metadata['summary']
+        self.cwd = metadata.get('cwd')
+        self.git_branch = metadata.get('git_branch')
+        self.timestamp = metadata['timestamp']
+        self.is_agent = metadata.get('is_agent', False)
+        self.messages = metadata.get('messages', [])
 
     def get_full_conversation(self) -> List[Dict]:
-        """Parse full conversation from JSONL"""
-        messages = []
-        try:
-            with open(self.path, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            data = json.loads(line)
-                            if data.get('type') in ['user', 'assistant']:
-                                messages.append(data)
-                        except json.JSONDecodeError:
-                            continue
-        except IOError:
-            pass
-        return messages
+        """Get full conversation messages"""
+        return self.messages
 
     def __repr__(self):
-        return f"Session({self.id[:8]}, {self.summary[:30]})"
+        return f"Session({self.id[:8] if self.id else 'unknown'}, {self.summary[:30]})"
 
-def encode_directory(path: str) -> str:
-    """Encode directory path for Claude storage (/ -> -)"""
-    return path.replace('/', '-')
-
-def decode_directory(encoded: str) -> str:
-    """Decode directory path from Claude storage (- -> /)"""
-    return encoded.replace('-', '/')
-
-def find_sessions_for_directory(directory: str) -> List[Session]:
-    """Find all sessions for a specific directory"""
+def find_sessions_for_directory(directory: str, provider) -> List[Session]:
+    """Find all sessions for a specific directory using provider abstraction"""
     directory = os.path.abspath(directory)
-    encoded_dir = encode_directory(directory)
-    project_dir = Path.home() / '.claude' / 'projects' / encoded_dir
 
-    if not project_dir.exists():
+    # Get session files using provider
+    session_files = provider.find_session_files(directory)
+
+    if not session_files:
         return []
 
     sessions = []
-    for jsonl_file in project_dir.glob('*.jsonl'):
-        session_id = jsonl_file.stem
-        sessions.append(Session(session_id, jsonl_file))
+    for session_file in session_files:
+        try:
+            session = Session(session_file, provider)
+            sessions.append(session)
+        except Exception as e:
+            # Skip files that can't be parsed
+            console.print(f"[dim]Warning: Could not parse {session_file.name}: {e}[/dim]")
+            continue
 
     # Sort by timestamp (newest first)
     return sorted(sessions, key=lambda s: s.timestamp, reverse=True)
 
-def find_all_sessions() -> Dict[str, List[Session]]:
+def find_all_sessions(provider) -> Dict[str, List[Session]]:
     """Find all sessions grouped by directory"""
-    projects_dir = Path.home() / '.claude' / 'projects'
+    # For now, this is complex to implement generically
+    # We would need to scan all possible project directories
+    # Let's simplify and just return sessions for current dir
+    # Users can use --all with a specific provider
+    console.print("[yellow]Note: --all flag with multi-provider is not yet fully supported[/yellow]")
+    console.print("[yellow]Showing sessions for current directory only[/yellow]")
 
-    if not projects_dir.exists():
-        return {}
+    cwd = os.getcwd()
+    sessions = find_sessions_for_directory(cwd, provider)
 
-    sessions_by_dir = {}
-
-    for project_dir in projects_dir.iterdir():
-        if not project_dir.is_dir():
-            continue
-
-        decoded_dir = decode_directory(project_dir.name)
-        sessions = find_sessions_for_directory(decoded_dir)
-
-        if sessions:
-            sessions_by_dir[decoded_dir] = sessions
-
-    return sessions_by_dir
+    if sessions:
+        return {cwd: sessions}
+    return {}
 
 def filter_sessions(sessions: List[Session],
                    since: Optional[str] = None,
@@ -217,14 +194,17 @@ def create_session_detail(session: Session) -> Panel:
 
 def resume_session(session: Session, fork: bool = False):
     """Resume a session in the current terminal"""
-    args = ['claude', '--resume', session.id]
-    if fork:
-        args.append('--fork-session')
+    # Get resume command from provider
+    args = session.provider.get_resume_command(session.id, fork)
+
+    if args is None:
+        console.print(f"[red]Session forking is not supported by {session.provider.get_name()}[/red]")
+        return
 
     # Change to original working directory if available
     cwd = session.cwd if session.cwd and os.path.exists(session.cwd) else os.getcwd()
 
-    console.print(f"\n[green]{'Forking' if fork else 'Resuming'} session {session.id[:8]}...[/green]\n")
+    console.print(f"\n[green]{'Forking' if fork else 'Resuming'} session {session.id[:8] if session.id else 'unknown'}...[/green]\n")
     subprocess.run(args, cwd=cwd)
 
 def interactive_session_browser(sessions: List[Session], directory: str):
@@ -309,6 +289,8 @@ def interactive_session_browser(sessions: List[Session], directory: str):
 
 @click.command()
 @click.argument('directory', default=None, required=False)
+@click.option('--provider', type=click.Choice(['claude', 'gemini', 'auto'], case_sensitive=False),
+              default='auto', help='AI provider to use (auto-detects if not specified)')
 @click.option('--all', 'show_all', is_flag=True, help='Show sessions from all directories')
 @click.option('--since', help='Filter sessions since date (YYYY-MM-DD)')
 @click.option('--before', help='Filter sessions before date (YYYY-MM-DD)')
@@ -317,6 +299,7 @@ def interactive_session_browser(sessions: List[Session], directory: str):
 @click.option('--main-only', is_flag=True, help='Show only main sessions')
 @click.option('--list', 'list_mode', is_flag=True, help='Non-interactive list mode')
 def main(directory: Optional[str],
+         provider: str,
          show_all: bool,
          since: Optional[str],
          before: Optional[str],
@@ -325,18 +308,39 @@ def main(directory: Optional[str],
          main_only: bool,
          list_mode: bool):
     """
-    Claude Code Session Manager - View and manage sessions (folder-based)
+    AI Session Manager - View and manage sessions (folder-based)
+
+    Supports both Claude Code and Gemini CLI backends.
 
     Examples:
-        claude-sessions                  # Show sessions for current directory
-        claude-sessions ~/my-project     # Show sessions for specific directory
-        claude-sessions --all            # Show all sessions (grouped by directory)
+        claude-sessions                      # Show sessions for current directory
+        claude-sessions --provider gemini    # Show Gemini sessions
+        claude-sessions ~/my-project         # Show sessions for specific directory
+        claude-sessions --all                # Show all sessions (grouped by directory)
         claude-sessions --since 2025-01-01 --search auth
     """
 
+    # Get provider
+    provider_name = None if provider == 'auto' else provider
+    if provider_name:
+        ai_provider = get_provider(provider_name)
+        if not ai_provider:
+            console.print(f"[red]Unknown provider: {provider_name}[/red]")
+            return
+        if not ai_provider.is_available():
+            console.print(f"[red]Provider '{provider_name}' is not available on this system[/red]")
+            return
+    else:
+        ai_provider = detect_provider()
+        if not ai_provider:
+            console.print("[red]No AI provider available. Please install claude or gemini-cli.[/red]")
+            return
+
+    console.print(f"[dim]Using provider: {ai_provider.get_name()}[/dim]\n")
+
     if show_all:
         # Show all sessions grouped by directory
-        all_sessions = find_all_sessions()
+        all_sessions = find_all_sessions(ai_provider)
 
         if not all_sessions:
             console.print("[yellow]No sessions found[/yellow]")
@@ -356,14 +360,14 @@ def main(directory: Optional[str],
         target_dir = directory if directory else os.getcwd()
         target_dir = os.path.abspath(target_dir)
 
-        sessions = find_sessions_for_directory(target_dir)
+        sessions = find_sessions_for_directory(target_dir, ai_provider)
 
         # Apply filters
         sessions = filter_sessions(sessions, since, before, search, agents_only, main_only)
 
         if not sessions:
             console.print(f"[yellow]No sessions found for {target_dir}[/yellow]")
-            console.print("[dim]Try running 'claude' in this directory first to create sessions[/dim]")
+            console.print(f"[dim]Try running '{ai_provider.get_name()}' in this directory first to create sessions[/dim]")
             return
 
         if list_mode:

@@ -1,0 +1,17 @@
+{
+  "default_provider": "auto",
+  "providers": {
+    "claude": {
+      "binary_path": "~/.local/bin/claude",
+      "config_dir": "~/.claude"
+    },
+    "gemini": {
+      "binary_path": "~/.npm-global/bin/gemini",
+      "config_dir": "~/.gemini"
+    }
+  },
+  "docker": {
+    "enabled": true,
+    "auto_build": true
+  }
+}

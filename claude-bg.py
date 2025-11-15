@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-claude-bg - Background agent runner for Claude Code
-Runs Claude agents in headless sandboxed mode with no permission prompts.
+claude-bg - Background agent runner for Claude Code and Gemini CLI
+Runs AI agents in headless sandboxed mode with no permission prompts.
+Supports both Claude Code and Gemini CLI backends.
 """
 
 import os
@@ -23,13 +24,43 @@ from rich.syntax import Syntax
 import schedule
 import time
 
+# Import AI provider abstraction
+from ai_provider import get_provider, detect_provider, get_all_providers
+
 console = Console()
 
-# Configuration
-BG_AGENTS_DIR = Path.home() / '.claude' / 'bg-agents'
-SESSIONS_FILE = BG_AGENTS_DIR / 'sessions.json'
-LOGS_DIR = BG_AGENTS_DIR / 'logs'
-SCHEDULES_FILE = BG_AGENTS_DIR / 'schedules.json'
+# Configuration - will be updated based on provider
+BG_AGENTS_DIR = None
+SESSIONS_FILE = None
+LOGS_DIR = None
+SCHEDULES_FILE = None
+
+def init_config(provider_name: Optional[str] = None):
+    """Initialize configuration based on provider"""
+    global BG_AGENTS_DIR, SESSIONS_FILE, LOGS_DIR, SCHEDULES_FILE
+
+    # Get provider
+    if provider_name:
+        provider = get_provider(provider_name)
+        if not provider:
+            console.print(f"[red]Unknown provider: {provider_name}[/red]")
+            sys.exit(1)
+        if not provider.is_available():
+            console.print(f"[red]Provider '{provider_name}' is not available on this system[/red]")
+            sys.exit(1)
+    else:
+        provider = detect_provider()
+        if not provider:
+            console.print("[red]No AI provider available. Please install claude or gemini-cli.[/red]")
+            sys.exit(1)
+
+    # Set paths based on provider
+    BG_AGENTS_DIR = provider.get_bg_agents_dir()
+    SESSIONS_FILE = BG_AGENTS_DIR / 'sessions.json'
+    LOGS_DIR = BG_AGENTS_DIR / 'logs'
+    SCHEDULES_FILE = BG_AGENTS_DIR / 'schedules.json'
+
+    return provider
 
 def ensure_dirs():
     """Ensure required directories exist"""
@@ -82,7 +113,7 @@ def get_current_branch() -> Optional[str]:
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
 
-def sanitize_branch_name(prompt: str, session_id: str) -> str:
+def sanitize_branch_name(prompt: str, session_id: str, provider_name: str = 'ai') -> str:
     """Generate a sanitized branch name from prompt and session ID"""
     # Take first 40 chars of prompt, remove special chars, convert to kebab-case
     import re
@@ -93,9 +124,9 @@ def sanitize_branch_name(prompt: str, session_id: str) -> str:
     if not sanitized:
         sanitized = 'task'
 
-    # Format: claude-bg/<prompt>-<short-session-id>
+    # Format: <provider>-bg/<prompt>-<short-session-id>
     short_id = session_id[:8]
-    return f'claude-bg/{sanitized}-{short_id}'
+    return f'{provider_name}-bg/{sanitized}-{short_id}'
 
 def create_git_branch(branch_name: str) -> bool:
     """Create and checkout a new git branch"""
@@ -115,9 +146,9 @@ def check_docker() -> bool:
     except (subprocess.CalledProcessError, FileNotFoundError):
         return False
 
-def ensure_docker_image() -> bool:
-    """Ensure Docker image is built"""
-    image_name = 'claude-bg:latest'
+def ensure_docker_image(provider_name: str = 'claude') -> bool:
+    """Ensure Docker image is built for the given provider"""
+    image_name = f'{provider_name}-bg:latest'
 
     # Check if image exists
     result = subprocess.run(
@@ -130,27 +161,38 @@ def ensure_docker_image() -> bool:
         return True
 
     # Build image if it doesn't exist
-    console.print("[yellow]Building Docker image (first time only)...[/yellow]")
+    console.print(f"[yellow]Building {provider_name} Docker image (first time only)...[/yellow]")
     dockerfile_dir = Path(__file__).resolve().parent
+
+    # Check if provider-specific Dockerfile exists
+    dockerfile = dockerfile_dir / f'Dockerfile.{provider_name}'
+    if not dockerfile.exists():
+        # Fall back to generic Dockerfile
+        dockerfile = dockerfile_dir / 'Dockerfile'
+
+    if not dockerfile.exists():
+        console.print(f"[red]Dockerfile not found at {dockerfile}[/red]")
+        return False
 
     try:
         subprocess.run(
-            ['docker', 'build', '-t', image_name, str(dockerfile_dir)],
+            ['docker', 'build', '-f', str(dockerfile), '-t', image_name, str(dockerfile_dir)],
             check=True,
             capture_output=True
         )
-        console.print("[green]Docker image built successfully[/green]")
+        console.print(f"[green]{provider_name} Docker image built successfully[/green]")
         return True
     except subprocess.CalledProcessError as e:
         console.print(f"[red]Failed to build Docker image: {e}[/red]")
         return False
 
-def run_background(prompt: str, session_id: Optional[str] = None, use_sandbox: bool = True) -> str:
+def run_background(prompt: str, provider, session_id: Optional[str] = None, use_sandbox: bool = True) -> str:
     """
-    Run Claude in background with sandbox + skip-permissions
+    Run AI agent in background with sandbox + skip-permissions
 
     Args:
         prompt: The prompt to run
+        provider: AI provider instance
         session_id: Optional session ID (will generate if not provided)
         use_sandbox: Whether to use Docker sandboxing
 
@@ -165,7 +207,7 @@ def run_background(prompt: str, session_id: Optional[str] = None, use_sandbox: b
     original_branch = None
     if check_git_repo():
         original_branch = get_current_branch()
-        branch_name = sanitize_branch_name(prompt, session_id)
+        branch_name = sanitize_branch_name(prompt, session_id, provider.get_name())
 
         if not create_git_branch(branch_name):
             console.print("[yellow]Warning: Failed to create branch, continuing without branch isolation[/yellow]")
@@ -182,7 +224,7 @@ def run_background(prompt: str, session_id: Optional[str] = None, use_sandbox: b
             console.print("[red]Error: Docker is not available. Please install Docker.[/red]")
             console.print("[yellow]Falling back to non-sandboxed execution[/yellow]")
             use_sandbox = False
-        elif not ensure_docker_image():
+        elif not ensure_docker_image(provider.get_name()):
             console.print("[yellow]Falling back to non-sandboxed execution[/yellow]")
             use_sandbox = False
 
@@ -190,32 +232,30 @@ def run_background(prompt: str, session_id: Optional[str] = None, use_sandbox: b
         # Run in Docker container
         cwd = os.getcwd()
         home = str(Path.home())
+        binary_path = provider.get_binary_path()
 
         # Docker command with volume mounts
-        # Run as current user (not root) to allow --dangerously-skip-permissions
+        # Run as current user (not root) to allow skip-permissions
         uid = os.getuid()
         gid = os.getgid()
 
-        container_name = f'claude-bg-{session_id[:8]}'
+        container_name = f'{provider.get_name()}-bg-{session_id[:8]}'
+
+        # Get provider-specific mounts
+        mounts = provider.get_docker_mounts(cwd, home, binary_path)
+
+        # Build docker command
         cmd = [
             'docker', 'run',
             '--name', container_name,
             '--rm',  # Remove container when done
             '--user', f'{uid}:{gid}',  # Run as current user, not root
-            '-v', f'{cwd}:/workspace',  # Mount working directory
-            '-v', f'{home}/.claude:{home}/.claude',  # Mount Claude config (same path)
-            '-v', f'{home}/.claude.json:{home}/.claude.json',  # Mount main config file
-            '-v', f'{home}/.local/bin/claude:/usr/local/bin/claude:ro',  # Mount Claude binary
-            '-v', f'{home}/.local/share/claude:{home}/.local/share/claude:ro',  # Mount Claude installation
+        ] + mounts + [
             '-w', '/workspace',  # Set working directory
             '-e', f'SESSION_ID={session_id}',
             '-e', f'HOME={home}',  # Set HOME env var
-            'claude-bg:latest',
-            'claude', '-p', prompt,
-            '--dangerously-skip-permissions',
-            '--session-id', session_id,
-            '--output-format', 'text'  # Force text output to stdout
-        ]
+            f'{provider.get_name()}-bg:latest',
+        ] + provider.get_run_command(prompt, session_id, 'text')
 
         # Run in background and capture logs using docker logs
         process = subprocess.Popen(
@@ -238,11 +278,7 @@ def run_background(prompt: str, session_id: Optional[str] = None, use_sandbox: b
 
     else:
         # Run without sandbox (direct execution)
-        cmd = [
-            'claude', '-p', prompt,
-            '--dangerously-skip-permissions',
-            '--session-id', session_id
-        ]
+        cmd = provider.get_run_command(prompt, session_id)
 
         process = subprocess.Popen(
             cmd,
@@ -265,7 +301,8 @@ def run_background(prompt: str, session_id: Optional[str] = None, use_sandbox: b
         'log_path': str(log_path),
         'sandboxed': use_sandbox and check_docker(),
         'branch': branch_name,
-        'original_branch': original_branch
+        'original_branch': original_branch,
+        'provider': provider.get_name()  # Store provider name
     })
     save_sessions(sessions)
 
@@ -280,29 +317,40 @@ def get_session_status(session: Dict) -> str:
         return 'completed'
 
 @click.group()
-def cli():
-    """Claude Background Agent Runner - Run agents in headless sandboxed mode
+@click.option('--provider', type=click.Choice(['claude', 'gemini', 'auto'], case_sensitive=False),
+              default='auto', help='AI provider to use (auto-detects if not specified)')
+@click.pass_context
+def cli(ctx, provider):
+    """AI Background Agent Runner - Run agents in headless sandboxed mode
+
+    Supports both Claude Code and Gemini CLI backends.
 
     \b
     Examples:
       claude-bg run "analyze this codebase for bugs"
+      claude-bg --provider gemini run "explain this code"
       claude-bg list --all
       claude-bg logs a1b2c3d4
       claude-bg clear --force
 
     \b
-    Each task runs in its own git branch (claude-bg/<task-description>-<id>)
+    Each task runs in its own git branch (<provider>-bg/<task-description>-<id>)
     Use standard git commands to review and merge branches when complete.
     """
-    pass
+    # Initialize provider and store in context
+    provider_name = None if provider == 'auto' else provider
+    ctx.ensure_object(dict)
+    ctx.obj['provider'] = init_config(provider_name)
 
 @cli.command()
 @click.argument('prompt')
-def run(prompt: str):
+@click.pass_context
+def run(ctx, prompt: str):
     """Run a single task in background (always sandboxed)"""
+    provider = ctx.obj['provider']
     ensure_dirs()
 
-    session_id = run_background(prompt, use_sandbox=True)
+    session_id = run_background(prompt, provider, use_sandbox=True)
 
     # Get session info to display branch
     sessions = load_sessions()
@@ -314,6 +362,7 @@ def run(prompt: str):
 
     console.print(Panel(
         f"[green]Background agent started[/green]\n\n"
+        f"Provider: [blue]{provider.get_name()}[/blue]\n"
         f"Session ID: [cyan]{session_id}[/cyan]\n"
         f"Prompt: {prompt[:60]}{'...' if len(prompt) > 60 else ''}\n"
         f"{branch_info}"
@@ -348,6 +397,7 @@ def list(show_all: bool):
 
     table = Table(title="Background Agents")
     table.add_column("Session ID", style="cyan")
+    table.add_column("Provider", style="blue")
     table.add_column("Status", style="green")
     table.add_column("Prompt", style="white")
     table.add_column("Branch", style="magenta")
@@ -358,11 +408,12 @@ def list(show_all: bool):
         status_color = "green" if session['status'] == 'running' else "dim"
         branch_display = session.get('branch', 'N/A')
         if branch_display and branch_display != 'N/A':
-            # Show just the last part after claude-bg/
+            # Show just the last part after <provider>-bg/
             branch_display = branch_display.split('/')[-1][:20]
 
         table.add_row(
             session['id'][:8],
+            session.get('provider', 'claude'),  # Default to claude for old sessions
             f"[{status_color}]{session['status']}[/{status_color}]",
             session['prompt'][:30],
             branch_display if branch_display else "N/A",

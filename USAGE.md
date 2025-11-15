@@ -17,16 +17,21 @@ ln -sf $(pwd)/claude-sessions.py ~/.local/bin/claude-sessions
 ### Run a single background task
 
 ```bash
-# Always runs sandboxed for isolation
+# Auto-detects available provider (Claude or Gemini)
 claude-bg run "analyze this codebase and find security vulnerabilities"
+
+# Or explicitly choose a provider
+claude-bg --provider claude run "analyze with Claude"
+claude-bg --provider gemini run "analyze with Gemini"
 ```
 
 **What happens:**
 - Creates a new session with UUID
-- Runs Claude in headless mode with `--dangerously-skip-permissions`
-- Wraps execution in `bubblewrap` sandbox (Linux)
-- Logs output to `~/.claude/bg-agents/logs/<session-id>.log`
-- Tracks session in `~/.claude/bg-agents/sessions.json`
+- Runs AI CLI in headless mode with permission bypass enabled
+- Wraps execution in Docker sandbox
+- Logs output to `~/<provider>/bg-agents/logs/<session-id>.log`
+- Tracks session in `~/<provider>/bg-agents/sessions.json`
+- Creates a git branch `<provider>-bg/<task>-<id>` (if in git repo)
 - Returns immediately (runs in background)
 
 ### Run multiple tasks in parallel
