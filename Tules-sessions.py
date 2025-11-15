@@ -12,7 +12,7 @@ import subprocess
 import re
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
 import click
 from rich.console import Console
@@ -263,6 +263,34 @@ def resume_session(session: Session, fork: bool = False):
     console.print(f"\n[green]{'Forking' if fork else 'Resuming'} session {session.id[:8] if session.id else 'unknown'}...[/green]\n")
     subprocess.run(args, cwd=cwd)
 
+def get_terminal_height() -> int:
+    """Get terminal height in lines"""
+    try:
+        import shutil
+        return shutil.get_terminal_size().lines
+    except:
+        return 40  # Default fallback
+
+def paginate_content(content: str, scroll_offset: int, page_height: int) -> Tuple[str, int, int]:
+    """
+    Paginate content for scrolling.
+    Returns: (visible_content, total_lines, max_scroll_offset)
+    """
+    lines = content.split('\n')
+    total_lines = len(lines)
+
+    # Calculate max scroll offset (can't scroll past the end)
+    max_offset = max(0, total_lines - page_height)
+
+    # Clamp scroll offset
+    scroll_offset = max(0, min(scroll_offset, max_offset))
+
+    # Get visible lines
+    visible_lines = lines[scroll_offset:scroll_offset + page_height]
+    visible_content = '\n'.join(visible_lines)
+
+    return visible_content, total_lines, scroll_offset
+
 def interactive_session_browser(sessions: List[Session], directory: str):
     """Interactive TUI for browsing sessions"""
     if not sessions:
@@ -281,9 +309,10 @@ def interactive_session_browser(sessions: List[Session], directory: str):
 
     selected_idx = 0
     view_mode = 'list'  # 'list', 'detail', or 'logs'
+    scroll_offset = 0  # For detail and log views
 
     console.print("\n[bold cyan]Claude Code Session Browser[/bold cyan]")
-    console.print("[dim]↑/↓: Navigate | Enter/v: View Details | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
+    console.print("[dim]↑/↓: Navigate Sessions | Enter/v: View Details | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
 
     try:
         import tty
@@ -296,7 +325,7 @@ def interactive_session_browser(sessions: List[Session], directory: str):
             try:
                 tty.setraw(sys.stdin.fileno())
                 ch = sys.stdin.read(1)
-                # Handle arrow keys (escape sequences)
+                # Handle arrow keys and special keys (escape sequences)
                 if ch == '\x1b':
                     ch2 = sys.stdin.read(1)
                     if ch2 == '[':
@@ -305,49 +334,171 @@ def interactive_session_browser(sessions: List[Session], directory: str):
                             return 'up'
                         elif ch3 == 'B':
                             return 'down'
+                        elif ch3 == '5':  # Page Up
+                            sys.stdin.read(1)  # consume the '~'
+                            return 'pgup'
+                        elif ch3 == '6':  # Page Down
+                            sys.stdin.read(1)  # consume the '~'
+                            return 'pgdn'
+                    # If escape but not arrow key, treat as escape
+                    return ch
                 return ch
             finally:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
         while True:
+            # Get terminal height for pagination (reserve space for header/footer)
+            term_height = get_terminal_height()
+            page_height = term_height - 8  # Reserve lines for header, footer, padding
+
             # Clear screen and show content
             if view_mode == 'list':
                 console.clear()
                 console.print("\n[bold cyan]Claude Code Session Browser[/bold cyan]")
-                console.print("[dim]↑/↓: Navigate | Enter/v: View Details | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
+                console.print("[dim]↑/↓: Navigate | Enter/v: Details | l: Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
                 table = create_session_table(sessions, directory, selected_idx)
                 console.print(table)
+                scroll_offset = 0  # Reset scroll when returning to list
+
             elif view_mode == 'detail':
                 console.clear()
-                console.print("\n[bold cyan]Session Details[/bold cyan]")
-                console.print("[dim]b: Back to List | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
-                panel = create_session_detail(sessions[selected_idx])
-                console.print(panel)
+
+                # Generate full detail content
+                session = sessions[selected_idx]
+                messages = session.get_full_conversation()
+
+                # Build conversation text - show ALL messages with more content
+                conversation = []
+                for idx, msg in enumerate(messages):
+                    role = msg.get('message', {}).get('role', 'unknown')
+                    content = msg.get('message', {}).get('content', [])
+
+                    # Extract text content
+                    text_parts = []
+                    for part in content:
+                        if isinstance(part, dict) and part.get('type') == 'text':
+                            text_parts.append(part.get('text', ''))
+
+                    if text_parts:
+                        text = '\n'.join(text_parts)
+                        # Show first 1000 chars instead of 200
+                        truncated = text[:1000]
+                        if len(text) > 1000:
+                            truncated += f"\n[dim]... (truncated, {len(text)} chars total)[/dim]"
+                        conversation.append(f"[bold cyan]Message {idx + 1} - {role.upper()}:[/bold cyan]\n{truncated}\n")
+
+                detail_text = f"""[bold]Session ID:[/bold] {session.id}
+[bold]Type:[/bold] {'Agent' if session.is_agent else 'Main Session'}
+[bold]Summary:[/bold] {session.summary}
+[bold]Working Directory:[/bold] {session.cwd or 'Unknown'}
+[bold]Git Branch:[/bold] {session.git_branch or 'Unknown'}
+[bold]Last Modified:[/bold] {session.timestamp.strftime("%Y-%m-%d %H:%M:%S")}
+[bold]Total Messages:[/bold] {len(messages)}
+
+{'─' * 80}
+[bold]Full Conversation:[/bold]
+
+{chr(10).join(conversation)}"""
+
+                # Paginate content
+                visible_content, total_lines, scroll_offset = paginate_content(
+                    detail_text, scroll_offset, page_height
+                )
+
+                # Show header with scroll position
+                console.print(f"\n[bold cyan]Session Details: {session.id[:8]} ({len(messages)} messages)[/bold cyan]")
+                console.print(f"[dim]↑/↓: Scroll (PgUp/PgDn: Fast) | n/p: Next/Prev Session | b: Back | l: Logs | r: Resume | q: Quit[/dim]")
+                console.print(f"[dim]Lines {scroll_offset + 1}-{min(scroll_offset + page_height, total_lines)} of {total_lines}[/dim]\n")
+
+                # Show paginated content
+                console.print(Panel(
+                    visible_content,
+                    border_style="cyan"
+                ))
+
             elif view_mode == 'logs':
                 console.clear()
-                console.print("\n[bold cyan]Session Logs[/bold cyan]")
-                console.print("[dim]b: Back to List | q: Quit[/dim]\n")
-                log_panel = create_log_popup(sessions[selected_idx])
-                console.print(log_panel)
+
+                session = sessions[selected_idx]
+                log_path = session.get_log_path()
+
+                if not log_path:
+                    log_content = "[yellow]No log file found for this session.[/yellow]\n\n[dim]Note: Only background agent sessions have log files.[/dim]"
+                    total_lines = 3
+                else:
+                    try:
+                        # Read entire log file for scrolling
+                        with open(log_path, 'r') as f:
+                            log_content = f.read()
+                        if not log_content:
+                            log_content = "[dim]Log file is empty[/dim]"
+                    except Exception as e:
+                        log_content = f"[red]Error reading log file:[/red]\n{str(e)}"
+
+                # Paginate log content
+                visible_content, total_lines, scroll_offset = paginate_content(
+                    log_content, scroll_offset, page_height
+                )
+
+                # Show header with scroll position
+                console.print(f"\n[bold cyan]Logs: {session.id[:8] if session.id else 'unknown'}[/bold cyan]")
+                console.print(f"[dim]↑/↓: Scroll (PgUp/PgDn: Fast) | n/p: Next/Prev Session | b: Back | q: Quit[/dim]")
+                console.print(f"[dim]Lines {scroll_offset + 1}-{min(scroll_offset + page_height, total_lines)} of {total_lines}[/dim]\n")
+
+                # Show paginated content
+                console.print(Panel(
+                    visible_content,
+                    border_style="green"
+                ))
 
             # Get input
             key = get_key()
 
             if key == 'q':
                 break
-            elif key == 'up' and view_mode == 'list':
-                selected_idx = max(0, selected_idx - 1)
-            elif key == 'down' and view_mode == 'list':
-                selected_idx = min(len(sessions) - 1, selected_idx + 1)
+            elif key == 'up':
+                if view_mode == 'list':
+                    # Navigate sessions in list view
+                    selected_idx = max(0, selected_idx - 1)
+                else:
+                    # Scroll up in detail/logs view (1 line)
+                    scroll_offset = max(0, scroll_offset - 1)
+            elif key == 'down':
+                if view_mode == 'list':
+                    # Navigate sessions in list view
+                    selected_idx = min(len(sessions) - 1, selected_idx + 1)
+                else:
+                    # Scroll down in detail/logs view (1 line)
+                    scroll_offset += 1  # Will be clamped in paginate_content
+            elif key == 'pgup':
+                if view_mode != 'list':
+                    # Scroll up one page
+                    scroll_offset = max(0, scroll_offset - page_height)
+            elif key == 'pgdn':
+                if view_mode != 'list':
+                    # Scroll down one page
+                    scroll_offset += page_height  # Will be clamped in paginate_content
+            elif key == 'n':  # Next session (in detail/logs view)
+                if view_mode in ['detail', 'logs']:
+                    selected_idx = min(len(sessions) - 1, selected_idx + 1)
+                    scroll_offset = 0  # Reset scroll for new session
+            elif key == 'p':  # Previous session (in detail/logs view)
+                if view_mode in ['detail', 'logs']:
+                    selected_idx = max(0, selected_idx - 1)
+                    scroll_offset = 0  # Reset scroll for new session
             elif key in ['\r', '\n', 'v']:  # Enter or 'v'
                 if view_mode == 'list':
                     view_mode = 'detail'
+                    scroll_offset = 0
                 elif view_mode in ['detail', 'logs']:
                     view_mode = 'list'
+                    scroll_offset = 0
             elif key == 'l':  # View logs
                 view_mode = 'logs'
+                scroll_offset = 0
             elif key == 'b' and view_mode in ['detail', 'logs']:
                 view_mode = 'list'
+                scroll_offset = 0
             elif key == 'r':
                 resume_session(sessions[selected_idx], fork=False)
                 break
