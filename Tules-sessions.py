@@ -288,14 +288,56 @@ def interactive_session_browser(sessions: List[Session], directory: str):
                 # Build conversation text - show ALL messages with more content
                 conversation = []
                 for idx, msg in enumerate(messages):
-                    role = msg.get('message', {}).get('role', 'unknown')
-                    content = msg.get('message', {}).get('content', [])
+                    # Handle both Claude and Gemini message formats
+                    # Claude: {type: "user", message: {role: "user", content: [...]}}
+                    # Gemini: {type: "user", content: "..."}
 
-                    # Extract text content
+                    if 'message' in msg:
+                        # Claude format - nested message object
+                        role = msg.get('message', {}).get('role', 'unknown')
+                        content = msg.get('message', {}).get('content', [])
+                    else:
+                        # Gemini format - flat structure
+                        role = msg.get('type', 'unknown')
+                        content = msg.get('content', '')
+
+                    # Extract and format content based on type
                     text_parts = []
-                    for part in content:
-                        if isinstance(part, dict) and part.get('type') == 'text':
-                            text_parts.append(part.get('text', ''))
+
+                    # Handle string content (Gemini) vs list content (Claude)
+                    if isinstance(content, str):
+                        # Gemini format - content is a plain string
+                        text_parts.append(content)
+                    elif isinstance(content, list):
+                        # Claude format - content is a list of parts
+                        for part in content:
+                            if isinstance(part, dict):
+                                part_type = part.get('type')
+
+                                if part_type == 'text':
+                                    # Regular text content
+                                    text_parts.append(part.get('text', ''))
+                                elif part_type == 'tool_use':
+                                    # Tool usage (function calls)
+                                    tool_name = part.get('name', 'unknown')
+                                    text_parts.append(f"[dim][Tool use: {tool_name}][/dim]")
+                                elif part_type == 'tool_result':
+                                    # Tool results
+                                    tool_content = part.get('content', '')
+                                    if isinstance(tool_content, str):
+                                        preview = tool_content[:200] + '...' if len(tool_content) > 200 else tool_content
+                                        text_parts.append(f"[dim][Tool result: {preview}][/dim]")
+                                    else:
+                                        text_parts.append(f"[dim][Tool result][/dim]")
+                                elif part_type == 'image':
+                                    # Image content
+                                    text_parts.append(f"[dim][Image attachment][/dim]")
+                                else:
+                                    # Other content types
+                                    text_parts.append(f"[dim][{part_type}][/dim]")
+                            elif isinstance(part, str):
+                                # Handle string parts in list
+                                text_parts.append(part)
 
                     if text_parts:
                         text = '\n'.join(text_parts)
@@ -304,6 +346,9 @@ def interactive_session_browser(sessions: List[Session], directory: str):
                         if len(text) > 1000:
                             truncated += f"\n[dim]... (truncated, {len(text)} chars total)[/dim]"
                         conversation.append(f"[bold cyan]Message {idx + 1} - {role.upper()}:[/bold cyan]\n{truncated}\n")
+                    else:
+                        # Even if no text parts, show that a message exists
+                        conversation.append(f"[bold cyan]Message {idx + 1} - {role.upper()}:[/bold cyan]\n[dim](empty or non-text content)[/dim]\n")
 
                 detail_text = f"""[bold]Session ID:[/bold] {session.id}
 [bold]Type:[/bold] {'Agent' if session.is_agent else 'Main Session'}
