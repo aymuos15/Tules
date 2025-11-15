@@ -4,8 +4,12 @@
 # Installs Tules background agent runner for Claude Code and Gemini CLI
 #
 # Usage:
-#   ./install.sh              # Install
+#   ./install.sh              # Install (local)
+#   curl -sSL https://raw.githubusercontent.com/aymuos15/Tules/master/install.sh | bash  # Remote install
 #   ./install.sh --uninstall  # Uninstall
+#
+# NOTE: Remote installation (via curl) only works for PUBLIC repositories.
+# For PRIVATE repositories, clone first then run ./install.sh
 #
 
 set -e  # Exit on error
@@ -20,6 +24,11 @@ NC='\033[0m' # No Color
 # Installation paths
 INSTALL_DIR="$HOME/.local/bin"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Repository info for remote installation
+REPO_URL="https://github.com/aymuos15/Tules.git"
+REPO_BRANCH="master"
+CLONE_DIR="$HOME/.tules-install-temp"
 
 # Files to symlink
 SYMLINKS=(
@@ -93,6 +102,52 @@ check_docker() {
     else
         print_warning "Docker not found - Docker is recommended but not required"
         print_info "Install Docker from: https://docs.docker.com/get-docker/"
+    fi
+}
+
+check_git() {
+    if ! check_command git; then
+        print_error "git is not installed"
+        print_info "Please install git to clone the repository"
+        exit 1
+    fi
+    print_success "git detected"
+}
+
+is_remote_install() {
+    # Check if we're being piped from curl (no tty, and script files don't exist)
+    if [ ! -t 0 ] && [ ! -f "$SCRIPT_DIR/Tules.py" ]; then
+        return 0
+    fi
+    return 1
+}
+
+clone_repository() {
+    print_info "Cloning Tules repository..."
+
+    # Remove old clone directory if it exists
+    if [ -d "$CLONE_DIR" ]; then
+        rm -rf "$CLONE_DIR"
+    fi
+
+    # Clone the repository
+    git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$CLONE_DIR" 2>&1 | grep -v "Cloning into" || true
+
+    if [ ! -d "$CLONE_DIR" ]; then
+        print_error "Failed to clone repository"
+        exit 1
+    fi
+
+    # Update SCRIPT_DIR to point to cloned repo
+    SCRIPT_DIR="$CLONE_DIR"
+    print_success "Repository cloned to $CLONE_DIR"
+}
+
+cleanup_clone() {
+    if [ -d "$CLONE_DIR" ]; then
+        print_info "Cleaning up temporary files..."
+        rm -rf "$CLONE_DIR"
+        print_success "Cleanup complete"
     fi
 }
 
@@ -258,8 +313,8 @@ verify_installation() {
         echo ""
         echo "Try running:"
         echo "  Tules --help"
-        echo "  Tules-sessions --help"
-        echo "  Tules-instant --help"
+        echo "  Ti 'what is 2+2?'"
+        echo "  Ts --list"
         echo ""
     else
         echo ""
@@ -280,10 +335,26 @@ install() {
     echo "╚═══════════════════════════════════════╝"
     echo ""
 
+    # Detect if this is a remote installation
+    local is_remote=false
+    if is_remote_install; then
+        is_remote=true
+        print_info "Detected remote installation (via curl)"
+    else
+        print_info "Detected local installation"
+    fi
+
     print_info "Checking system requirements..."
     check_python_version
     check_pip
     check_docker
+
+    # Clone repository if remote install
+    if [ "$is_remote" = true ]; then
+        echo ""
+        check_git
+        clone_repository
+    fi
 
     echo ""
     install_dependencies
@@ -299,6 +370,12 @@ install() {
 
     echo ""
     verify_installation
+
+    # Cleanup if remote install
+    if [ "$is_remote" = true ]; then
+        echo ""
+        cleanup_clone
+    fi
 }
 
 #------------------------------------------------------------------------------

@@ -9,17 +9,24 @@ Three powerful tools in one package:
 
 ## Quick Install
 
-**One-line install:**
+**One-line install (public repos):**
 ```bash
 curl -sSL https://raw.githubusercontent.com/aymuos15/Tules/master/install.sh | bash
 ```
 
-**Or clone and install:**
+**Clone and install (recommended for private repos):**
 ```bash
 git clone https://github.com/aymuos15/Tules.git
 cd Tules
 ./install.sh
 ```
+
+**Uninstall:**
+```bash
+./install.sh --uninstall
+```
+
+**Troubleshooting?** See [INSTALL.md](INSTALL.md) for detailed installation instructions and troubleshooting.
 
 ## Usage
 
