@@ -9,6 +9,8 @@ Three powerful tools in one package:
 - **Tules-instant (Ti)**: Instant AI responses with rich markdown rendering
 - **Tules-sessions (Ts)**: Interactive session browser and manager
 
+![Tules TUI](assests/image.png)
+
 ## Quick Install
 
 **One-line install (public repos):**
