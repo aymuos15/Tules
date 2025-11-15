@@ -5,7 +5,7 @@ AI CLI toolkit for Claude Code and Gemini CLI with background agents, instant re
 Three powerful tools in one package:
 - **Tules (T)**: Background agents in Docker with automatic permission bypass
 - **Tules-instant (Ti)**: Instant AI responses with rich markdown rendering
-- **Tules-sessions**: Interactive session browser and manager
+- **Tules-sessions (Ts)**: Interactive session browser and manager
 
 ## Quick Install
 
@@ -72,15 +72,20 @@ Tules logs <session-id>
 Browse and manage AI sessions:
 
 ```bash
-# Manage sessions
+# Manage sessions (use Tules-sessions or Ts - they're the same)
 Tules-sessions
+Ts
 
 # List sessions for current directory
 Tules-sessions --list
+Ts --list
 
 # Filter agent sessions only
 Tules-sessions --agents-only
+Ts --agents-only
 ```
+
+**Note:** `Ts` is a short alias for `Tules-sessions` - session browser and manager!
 
 ## Features
 

@@ -26,6 +26,7 @@ SYMLINKS=(
     "Tules.py:Tules"
     "Tules.py:T"
     "Tules-sessions.py:Tules-sessions"
+    "Tules-sessions.py:Ts"
     "Tules-instant.py:Tules-instant"
     "Tules-instant.py:Ti"
 )

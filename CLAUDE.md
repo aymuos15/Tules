@@ -8,7 +8,7 @@ This repository contains standalone Python CLI tools for managing **Claude Code 
 
 1. **`Tules.py`** (aliased as `T`) - Run AI agents in headless Docker-sandboxed mode with automatic permission bypass
 2. **`Tules-instant.py`** (aliased as `Ti`) - Get instant AI responses with rich markdown rendering and syntax highlighting
-3. **`Tules-sessions.py`** - Interactive TUI for viewing and managing AI sessions, scoped by working directory
+3. **`Tules-sessions.py`** (aliased as `Ts`) - Interactive TUI for viewing and managing AI sessions, scoped by working directory
 
 All tools support both **Claude Code** and **Gemini CLI** backends with automatic provider detection. They are designed to be minimal, single-file executables that rely only on Rich (TUI), Click (CLI), and a provider abstraction layer (`ai_provider.py`).
 
@@ -33,6 +33,7 @@ ln -sf $(pwd)/Tules.py ~/.local/bin/T
 ln -sf $(pwd)/Tules-instant.py ~/.local/bin/Tules-instant
 ln -sf $(pwd)/Tules-instant.py ~/.local/bin/Ti
 ln -sf $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
+ln -sf $(pwd)/Tules-sessions.py ~/.local/bin/Ts
 ```
 
 **First-time Docker setup**: `Tules` will automatically build Docker images (`tules-claude:latest`, `tules-gemini:latest`) on first run.
@@ -241,6 +242,7 @@ Tules logs <session-id>
 
 # Test session viewer (shows sessions for current directory)
 Tules-sessions --list
+Ts --list  # Short alias
 
 # Test the T alias (same as Tules)
 T run "quick test task"
