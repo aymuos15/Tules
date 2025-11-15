@@ -4,28 +4,68 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains two standalone Python CLI tools for managing Claude Code background agents and sessions:
+This repository contains standalone Python CLI tools for managing **Claude Code and Gemini CLI** background agents and sessions:
 
-1. **`Tules.py`** - Run Claude agents in headless Docker-sandboxed mode with automatic permission bypass
-2. **`Tules-sessions.py`** - Interactive TUI for viewing and managing Claude Code sessions, scoped by working directory
+1. **`Tules.py`** - Run AI agents in headless Docker-sandboxed mode with automatic permission bypass
+2. **`Tules-sessions.py`** - Interactive TUI for viewing and managing AI sessions, scoped by working directory
+3. **`!`** - Ultra-short wrapper command for minimal typing
 
-Both tools are designed to be minimal, single-file executables that rely only on Rich (TUI) and Click (CLI).
+All tools support both **Claude Code** and **Gemini CLI** backends with automatic provider detection. They are designed to be minimal, single-file executables that rely only on Rich (TUI), Click (CLI), and a provider abstraction layer (`ai_provider.py`).
 
 ## Installation and Setup
 
+**Recommended**: Use the automated installer:
+```bash
+./install.sh
+```
+
+**Or manually**:
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 
 # Make scripts executable
-chmod +x Tules.py Tules-sessions.py
+chmod +x Tules.py Tules-sessions.py !
 
 # Create symlinks (tools are installed to ~/.local/bin/)
 ln -sf $(pwd)/Tules.py ~/.local/bin/Tules
 ln -sf $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
+ln -sf $(pwd)/! ~/.local/bin/!
 ```
 
 **First-time Docker setup**: `Tules` will automatically build Docker images (`tules-claude:latest`, `tules-gemini:latest`) on first run.
+
+**One-line install from GitHub**:
+```bash
+curl -sSL https://raw.githubusercontent.com/aymuos15/Tules/master/install.sh | bash
+```
+
+## Multi-Provider Support
+
+### Provider Abstraction Layer (`ai_provider.py`)
+
+All tools use a provider abstraction that supports both **Claude Code** and **Gemini CLI**:
+
+**Auto-detection logic**:
+1. Try Claude first (`~/.local/bin/claude`)
+2. Fall back to Gemini if Claude not found
+3. Can be explicitly set with `--provider` flag
+
+**Provider-specific differences**:
+
+| Feature | Claude Code | Gemini CLI |
+|---------|-------------|------------|
+| Session resuming | ✅ Yes (`--resume`) | ✅ Yes (`-r`) |
+| Session forking | ✅ Yes (`--fork-session`) | ❌ No |
+| Custom session IDs | ✅ Yes | ❌ Auto-generated |
+| Permission bypass | `--dangerously-skip-permissions` | `-y` (YOLO mode) |
+| Session storage | `~/.claude/projects/<encoded-path>/` | `~/.gemini/tmp/<hash>/chats/` |
+| Session format | JSONL | JSON |
+| Path encoding | Replace `/` with `-` | SHA-256 hash |
+
+**Data Storage**:
+- Claude: `~/.claude/bg-agents/`
+- Gemini: `~/.gemini/bg-agents/`
 
 ## Architecture
 
@@ -70,8 +110,20 @@ ln -sf $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
 
 **Interactive TUI**:
 - Uses `termios` for raw keyboard input (Unix-only)
+- TTY detection: Gracefully falls back to static list mode when stdin is not a TTY
 - Arrow key navigation with escape sequence parsing (`\x1b[A` = up, `\x1b[B` = down)
-- Actions: Resume (`r`), Fork (`f`), View details (`v`), Back (`b`), Quit (`q`)
+- Actions: Resume (`r`), Fork (`f`), View details (`v`), **View logs (`l`)**, Back (`b`), Quit (`q`)
+
+**Session Detail View Improvements**:
+- Shows ALL messages in conversation (not just first 5)
+- 1000 characters per message (instead of 200)
+- Message numbering: "Message 1 - USER:", "Message 2 - ASSISTANT:"
+- Character count indicators when content is truncated
+
+**Log Viewing** (`l` key):
+- Shows last 100 lines from `~/.{provider}/bg-agents/logs/{session-id}.log`
+- Only available for background agent sessions
+- Real-time inspection without leaving TUI
 
 **Filtering and Search**:
 - Date filters: ISO format (`--since "2025-01-01"`)
@@ -81,8 +133,11 @@ ln -sf $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
 ## Testing the Tools
 
 ```bash
-# Test background agent (should complete in ~5-15 seconds)
+# Test background agent with default provider (Claude)
 Tules run "what is 2+2?"
+
+# Test with specific provider
+Tules --provider gemini run "what is 2+2?"
 
 # Check it ran
 Tules list --all
@@ -93,9 +148,16 @@ Tules logs <session-id>
 # Test session viewer (shows sessions for current directory)
 Tules-sessions --list
 
-# Clear all test sessions
-Tules clear --force
+# Test the ! wrapper
+\! "quick test task"
+\! !gemini "test with gemini"
+
+# Clear test sessions (specify provider)
+Tules --provider claude clear --force
+Tules --provider gemini clear --force
 ```
+
+**Note**: Test with both providers if available to ensure multi-provider support works correctly.
 
 ## Common Modifications
 
@@ -134,6 +196,8 @@ To modify filtering: Update `filter_sessions()` function with additional criteri
 ## Known Limitations
 
 1. **Scheduler daemon**: Not implemented - `daemon` command exists but doesn't run (use system cron instead)
-2. **Interactive TUI**: Requires `termios` (Unix-only, won't work on Windows)
+2. **Interactive TUI**: Requires `termios` (Unix-only, won't work on Windows). Gracefully falls back to static mode when TTY not available.
 3. **Docker-only sandboxing**: Removed bubblewrap support in favor of Docker
-4. **Session summary**: Most sessions show "No summary" (depends on Claude Code version storing summary in first line)
+4. **Session summary**: Most sessions show "No summary" (depends on AI CLI version storing summary in first line)
+5. **Gemini limitations**: Session forking not supported (Claude Code only feature)
+6. **Log viewing**: Only available for background agent sessions (regular interactive sessions don't generate log files)
