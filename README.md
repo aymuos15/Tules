@@ -8,10 +8,44 @@ Minimal Python tools for managing AI background agents and sessions.
 
 ```bash
 pip install -r requirements.txt
-chmod +x claude-bg.py claude-sessions.py
+chmod +x claude-bg.py claude-sessions.py !
 ln -s $(pwd)/claude-bg.py ~/.local/bin/claude-bg
 ln -s $(pwd)/claude-sessions.py ~/.local/bin/claude-sessions
+ln -s $(pwd)/! ~/.local/bin/!
 ```
+
+## Quick Start: The `!` Command
+
+Ultra-short wrapper for running background agents with minimal typing:
+
+```bash
+# Run with Claude (default)
+\! fix this bug
+
+# Run with Gemini
+\! !gemini analyze this code
+
+# List all sessions (from all providers)
+\! list
+
+# View logs
+\! logs abc123
+
+# Clear completed sessions
+\! clear
+```
+
+**Note:** You need to escape `!` in bash as `\!` because `!` is used for history expansion. The command is still very short!
+
+### `!` Command Syntax
+
+- **`\! <prompt>`** - Run task with Claude (default provider)
+- **`\! !gemini <prompt>`** - Run task with Gemini
+- **`\! !claude <prompt>`** - Run task with Claude (explicit)
+- **`\! list [--all]`** - List sessions
+- **`\! logs <session-id>`** - View session logs
+- **`\! clear`** - Clear completed sessions
+- **`\! kill <session-id>`** - Kill running session
 
 ## Tools
 

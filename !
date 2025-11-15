@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""
+! - Ultra-short wrapper for claude-bg
+Makes running background AI agents as simple as: ! your task here
+"""
+import sys
+import subprocess
+from pathlib import Path
+
+# Path to claude-bg.py
+CLAUDE_BG = Path(__file__).resolve().parent / 'claude-bg.py'
+
+# Keywords that should be passed through as commands (not prompts)
+KEYWORDS = {'list', 'logs', 'clear', 'kill', 'schedule', 'daemon'}
+
+def main():
+    args = sys.argv[1:]
+
+    if not args:
+        # No args - show help
+        subprocess.run(['python3', str(CLAUDE_BG), '--help'])
+        return
+
+    # Parse for provider flag (words starting with !)
+    provider = None
+    prompt_args = []
+
+    for arg in args:
+        if arg.startswith('!') and len(arg) > 1:
+            # Extract provider from !provider syntax
+            provider_name = arg[1:].lower()
+            if provider_name in ['claude', 'gemini']:
+                provider = provider_name
+            else:
+                # Not a valid provider, treat as part of prompt
+                prompt_args.append(arg)
+        else:
+            prompt_args.append(arg)
+
+    if not prompt_args:
+        print("Error: No command or prompt provided")
+        sys.exit(1)
+
+    # Check if first remaining arg is a keyword command
+    if prompt_args[0] in KEYWORDS:
+        # Pass through as command to claude-bg
+        cmd = ['python3', str(CLAUDE_BG)]
+        if provider:
+            cmd += ['--provider', provider]
+        cmd += prompt_args
+    else:
+        # Treat as prompt for 'run' command
+        prompt = ' '.join(prompt_args)
+        cmd = ['python3', str(CLAUDE_BG)]
+        if provider:
+            cmd += ['--provider', provider]
+        cmd += ['run', prompt]
+
+    # Execute claude-bg
+    subprocess.run(cmd)
+
+if __name__ == '__main__':
+    main()
