@@ -245,12 +245,25 @@ def run_background(prompt: str, provider, session_id: Optional[str] = None, use_
         mounts = provider.get_docker_mounts(cwd, home, binary_path)
 
         # Build docker command
-        cmd = [
+        # For Gemini, use entrypoint to create user (fixes Node.js os.userInfo() error)
+        # For Claude, use --user flag directly
+        docker_cmd = [
             'docker', 'run',
             '--name', container_name,
             '--rm',  # Remove container when done
-            '--user', f'{uid}:{gid}',  # Run as current user, not root
-        ] + mounts + [
+        ]
+
+        if provider.get_name() == 'gemini':
+            # Let entrypoint handle user creation
+            docker_cmd += [
+                '-e', f'USER_ID={uid}',
+                '-e', f'GROUP_ID={gid}',
+            ]
+        else:
+            # Claude: run as current user directly
+            docker_cmd += ['--user', f'{uid}:{gid}']
+
+        cmd = docker_cmd + mounts + [
             '-w', '/workspace',  # Set working directory
             '-e', f'SESSION_ID={session_id}',
             '-e', f'HOME={home}',  # Set HOME env var
