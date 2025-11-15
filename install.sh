@@ -26,6 +26,8 @@ SYMLINKS=(
     "Tules.py:Tules"
     "Tules.py:T"
     "Tules-sessions.py:Tules-sessions"
+    "Tules-instant.py:Tules-instant"
+    "Tules-instant.py:Ti"
 )
 
 #------------------------------------------------------------------------------
@@ -256,7 +258,7 @@ verify_installation() {
         echo "Try running:"
         echo "  Tules --help"
         echo "  Tules-sessions --help"
-        echo "  \\! --help"
+        echo "  Tules-instant --help"
         echo ""
     else
         echo ""
