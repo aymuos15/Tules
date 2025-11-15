@@ -24,7 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Files to symlink
 SYMLINKS=(
     "Tules.py:Tules"
-    "Tules.py:?"
+    "Tules.py:T"
     "Tules-sessions.py:Tules-sessions"
 )
 

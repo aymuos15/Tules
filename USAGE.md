@@ -39,7 +39,7 @@ cd Tules
 pip install -r requirements.txt
 chmod +x Tules.py Tules-sessions.py
 ln -s $(pwd)/Tules.py ~/.local/bin/Tules
-ln -s $(pwd)/Tules.py ~/.local/bin/?
+ln -s $(pwd)/Tules.py ~/.local/bin/T
 ln -s $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
 ```
 
@@ -47,7 +47,7 @@ ln -s $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
 
 ```bash
 Tules --help
-? --help          # ? is just an alias for Tules
+T --help          # T is just an alias for Tules
 Tules-sessions --help
 ```
 

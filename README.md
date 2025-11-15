@@ -21,17 +21,17 @@ cd Tules
 ## Usage
 
 ```bash
-# Run background task (use Tules or ? - they're the same)
+# Run background task (use Tules or T - they're the same)
 Tules run "analyze this codebase"
-? run "analyze this codebase"
+T run "analyze this codebase"
 
 # Run with specific provider
 Tules --provider gemini run "explain this code"
-? --provider gemini run "explain this code"
+T --provider gemini run "explain this code"
 
 # List running agents
 Tules list
-? list
+T list
 
 # View logs
 Tules logs <session-id>
@@ -40,7 +40,7 @@ Tules logs <session-id>
 Tules-sessions
 ```
 
-**Note:** `?` is just a short alias for `Tules` - use whichever you prefer!
+**Note:** `T` is just a short alias for `Tules` - use whichever you prefer!
 
 ## Features
 
