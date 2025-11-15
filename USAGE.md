@@ -152,17 +152,20 @@ Tules-sessions
 ```
 
 **What happens:**
-- Scans `~/.claude/projects/-home-user-my-project/` for `*.jsonl` files
-- Shows interactive TUI with session list
+- Scans provider's projects directory for session files
+- Shows interactive TUI with session list (if running in a terminal)
 - Arrow keys to navigate, Enter to view details
 
 **Interactive controls:**
 - `↑/↓` - Navigate sessions
 - `Enter` or `v` - View session details
+- `l` - View logs (for background agent sessions)
 - `r` - Resume session (continues in current terminal)
 - `f` - Fork session (create new branch from this session)
-- `b` - Back to list (when in detail view)
+- `b` - Back to list (when in detail or logs view)
 - `q` - Quit
+
+**Note:** Interactive mode requires a real TTY (terminal). If running through automation or Claude Code, it will fall back to static list mode. Use `--list` flag explicitly for non-interactive output.
 
 ### View sessions for specific directory
 

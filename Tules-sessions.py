@@ -50,6 +50,20 @@ class Session:
         """Get full conversation messages"""
         return self.messages
 
+    def get_log_path(self) -> Optional[Path]:
+        """Get log file path for background agent sessions"""
+        if not self.id:
+            return None
+
+        # Get provider's bg-agents directory
+        bg_agents_dir = self.provider.get_bg_agents_dir()
+        logs_dir = bg_agents_dir / 'logs'
+
+        # Log file is named {session_id}.log
+        log_file = logs_dir / f'{self.id}.log'
+
+        return log_file if log_file.exists() else None
+
     def __repr__(self):
         return f"Session({self.id[:8] if self.id else 'unknown'}, {self.summary[:30]})"
 
@@ -154,9 +168,9 @@ def create_session_detail(session: Session) -> Panel:
     """Create a Rich panel for session details"""
     messages = session.get_full_conversation()
 
-    # Build conversation text
+    # Build conversation text - show ALL messages with more content
     conversation = []
-    for msg in messages[:20]:  # Limit to first 20 messages
+    for idx, msg in enumerate(messages):
         role = msg.get('message', {}).get('role', 'unknown')
         content = msg.get('message', {}).get('content', [])
 
@@ -168,7 +182,11 @@ def create_session_detail(session: Session) -> Panel:
 
         if text_parts:
             text = '\n'.join(text_parts)
-            conversation.append(f"[bold cyan]{role.upper()}:[/bold cyan]\n{text[:200]}{'...' if len(text) > 200 else ''}\n")
+            # Show first 1000 chars instead of 200, add message number
+            truncated = text[:1000]
+            if len(text) > 1000:
+                truncated += f"\n[dim]... (truncated, {len(text)} chars total)[/dim]"
+            conversation.append(f"[bold cyan]Message {idx + 1} - {role.upper()}:[/bold cyan]\n{truncated}\n")
 
     detail_text = f"""[bold]Session ID:[/bold] {session.id}
 [bold]Type:[/bold] {'Agent' if session.is_agent else 'Main Session'}
@@ -176,21 +194,62 @@ def create_session_detail(session: Session) -> Panel:
 [bold]Working Directory:[/bold] {session.cwd or 'Unknown'}
 [bold]Git Branch:[/bold] {session.git_branch or 'Unknown'}
 [bold]Last Modified:[/bold] {session.timestamp.strftime("%Y-%m-%d %H:%M:%S")}
-[bold]Messages:[/bold] {len(messages)}
+[bold]Total Messages:[/bold] {len(messages)}
 
-{'─' * 60}
-[bold]Conversation Preview:[/bold]
+{'─' * 80}
+[bold]Full Conversation:[/bold]
 
-{chr(10).join(conversation[:5])}
-
-{'[dim]... showing first 5 messages[/dim]' if len(messages) > 5 else ''}
+{chr(10).join(conversation)}
 """
 
     return Panel(
         detail_text,
-        title=f"Session Details: {session.id[:8]}",
+        title=f"Session Details: {session.id[:8]} ({len(messages)} messages)",
         border_style="cyan"
     )
+
+def create_log_popup(session: Session, lines: int = 100) -> Optional[Panel]:
+    """Create a centered popup panel for displaying logs"""
+    log_path = session.get_log_path()
+
+    if not log_path:
+        return Panel(
+            "[yellow]No log file found for this session.[/yellow]\n\n"
+            "[dim]Note: Only background agent sessions have log files.[/dim]",
+            title=f"Logs: {session.id[:8] if session.id else 'unknown'}",
+            border_style="yellow"
+        )
+
+    try:
+        # Read last N lines of log file
+        result = subprocess.run(
+            ['tail', f'-n{lines}', str(log_path)],
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode != 0:
+            return Panel(
+                f"[red]Error reading log file:[/red]\n{result.stderr}",
+                title=f"Logs: {session.id[:8] if session.id else 'unknown'}",
+                border_style="red"
+            )
+
+        log_content = result.stdout if result.stdout else "[dim]Log file is empty[/dim]"
+
+        return Panel(
+            log_content,
+            title=f"Logs: {session.id[:8] if session.id else 'unknown'} (last {lines} lines)",
+            border_style="green",
+            subtitle="[dim]Press 'b' to go back[/dim]"
+        )
+
+    except Exception as e:
+        return Panel(
+            f"[red]Error reading log file:[/red]\n{str(e)}",
+            title=f"Logs: {session.id[:8] if session.id else 'unknown'}",
+            border_style="red"
+        )
 
 def resume_session(session: Session, fork: bool = False):
     """Resume a session in the current terminal"""
@@ -213,14 +272,23 @@ def interactive_session_browser(sessions: List[Session], directory: str):
         console.print("[yellow]No sessions found for this directory[/yellow]")
         return
 
+    # Check if stdin is a TTY (required for interactive mode)
+    import sys
+    if not sys.stdin.isatty():
+        console.print("[yellow]Interactive mode requires a TTY (terminal)[/yellow]")
+        console.print("[yellow]Use --list for non-interactive mode, or run directly in a terminal[/yellow]")
+        # Fall back to static list
+        table = create_session_table(sessions, directory)
+        console.print(table)
+        return
+
     selected_idx = 0
-    view_mode = 'list'  # 'list' or 'detail'
+    view_mode = 'list'  # 'list', 'detail', or 'logs'
 
     console.print("\n[bold cyan]Claude Code Session Browser[/bold cyan]")
-    console.print("[dim]↑/↓: Navigate | Enter/v: View Details | r: Resume | f: Fork | q: Quit[/dim]\n")
+    console.print("[dim]↑/↓: Navigate | Enter/v: View Details | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
 
     try:
-        import sys
         import tty
         import termios
 
@@ -249,15 +317,21 @@ def interactive_session_browser(sessions: List[Session], directory: str):
             if view_mode == 'list':
                 console.clear()
                 console.print("\n[bold cyan]Claude Code Session Browser[/bold cyan]")
-                console.print("[dim]↑/↓: Navigate | Enter/v: View Details | r: Resume | f: Fork | q: Quit[/dim]\n")
+                console.print("[dim]↑/↓: Navigate | Enter/v: View Details | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
                 table = create_session_table(sessions, directory, selected_idx)
                 console.print(table)
-            else:  # detail mode
+            elif view_mode == 'detail':
                 console.clear()
                 console.print("\n[bold cyan]Session Details[/bold cyan]")
-                console.print("[dim]b: Back to List | r: Resume | f: Fork | q: Quit[/dim]\n")
+                console.print("[dim]b: Back to List | l: View Logs | r: Resume | f: Fork | q: Quit[/dim]\n")
                 panel = create_session_detail(sessions[selected_idx])
                 console.print(panel)
+            elif view_mode == 'logs':
+                console.clear()
+                console.print("\n[bold cyan]Session Logs[/bold cyan]")
+                console.print("[dim]b: Back to List | q: Quit[/dim]\n")
+                log_panel = create_log_popup(sessions[selected_idx])
+                console.print(log_panel)
 
             # Get input
             key = get_key()
@@ -271,9 +345,11 @@ def interactive_session_browser(sessions: List[Session], directory: str):
             elif key in ['\r', '\n', 'v']:  # Enter or 'v'
                 if view_mode == 'list':
                     view_mode = 'detail'
-                else:
+                elif view_mode in ['detail', 'logs']:
                     view_mode = 'list'
-            elif key == 'b' and view_mode == 'detail':
+            elif key == 'l':  # View logs
+                view_mode = 'logs'
+            elif key == 'b' and view_mode in ['detail', 'logs']:
                 view_mode = 'list'
             elif key == 'r':
                 resume_session(sessions[selected_idx], fork=False)
