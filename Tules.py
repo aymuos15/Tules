@@ -517,8 +517,10 @@ def logs(session_id: str, follow: bool, lines: int):
 
 @cli.command()
 @click.argument('session_id')
-def kill(session_id: str):
+@click.pass_context
+def kill(ctx, session_id: str):
     """Stop a running agent"""
+    provider = ctx.obj['provider']
     sessions = load_sessions()
 
     # Find matching session
@@ -537,7 +539,7 @@ def kill(session_id: str):
     try:
         # Kill process and its children
         os.killpg(os.getpgid(session['pid']), signal.SIGTERM)
-        console.print(f"[green]Killed session {session['id'][:8]}[/green]")
+        console.print(f"[green]Killed {provider.get_name()} session {session['id'][:8]}[/green]")
 
         # Update status
         session['status'] = 'killed'
@@ -551,8 +553,10 @@ def kill(session_id: str):
 @click.argument('cron_expr')
 @click.argument('prompt')
 @click.option('--name', help='Name for this scheduled task')
-def schedule_task(cron_expr: str, prompt: str, name: Optional[str]):
+@click.pass_context
+def schedule_task(ctx, cron_expr: str, prompt: str, name: Optional[str]):
     """Schedule a task (cron syntax: 'MIN HOUR DAY MONTH DAYOFWEEK')"""
+    provider = ctx.obj['provider']
     schedules = load_schedules()
 
     schedule_id = str(uuid.uuid4())
@@ -561,12 +565,14 @@ def schedule_task(cron_expr: str, prompt: str, name: Optional[str]):
         'name': name or f'Task {len(schedules) + 1}',
         'cron': cron_expr,
         'prompt': prompt,
+        'provider': provider.get_name(),
         'created': datetime.now().isoformat()
     })
     save_schedules(schedules)
 
     console.print(Panel(
         f"[green]Scheduled task created[/green]\n\n"
+        f"Provider: [blue]{provider.get_name()}[/blue]\n"
         f"Name: {name or f'Task {len(schedules)}'}\n"
         f"Cron: {cron_expr}\n"
         f"Prompt: {prompt[:60]}{'...' if len(prompt) > 60 else ''}\n\n"
@@ -594,8 +600,10 @@ def daemon():
 @cli.command()
 @click.option('--logs', is_flag=True, help='Also delete log files')
 @click.option('--force', is_flag=True, help='Skip confirmation')
-def clear(logs: bool, force: bool):
+@click.pass_context
+def clear(ctx, logs: bool, force: bool):
     """Clear all session history"""
+    provider = ctx.obj['provider']
     sessions = load_sessions()
 
     if not sessions:
@@ -604,13 +612,13 @@ def clear(logs: bool, force: bool):
 
     if not force:
         from rich.prompt import Confirm
-        if not Confirm.ask(f"Clear {len(sessions)} sessions?"):
+        if not Confirm.ask(f"Clear {len(sessions)} sessions for {provider.get_name()}?"):
             console.print("[yellow]Cancelled[/yellow]")
             return
 
     # Clear sessions
     save_sessions([])
-    console.print(f"[green]Cleared {len(sessions)} sessions[/green]")
+    console.print(f"[green]Cleared {len(sessions)} {provider.get_name()} sessions[/green]")
 
     # Optionally clear log files
     if logs:
