@@ -1,20 +1,30 @@
 FROM ubuntu:22.04
 
-# Install dependencies
+# Install dependencies (including Node.js for Gemini CLI support)
 RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
     git \
+    gosu \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy and set up entrypoint script
+# This creates the user dynamically to fix Node.js os.userInfo() errors
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Create directories that will be mounted
-# This is needed to avoid permission issues
-RUN mkdir -p /workspace /root/.claude
+RUN mkdir -p /workspace /root/.claude /root/.gemini
 
 # Make /root accessible to all users (for when running as non-root)
 RUN chmod -R 777 /root
 
 WORKDIR /workspace
+
+# Set entrypoint to handle user creation
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Default command
 CMD ["/bin/bash"]
