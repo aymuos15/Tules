@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-claude-sessions - Session manager TUI for Claude Code and Gemini CLI
+Tules-sessions - Session manager TUI for Claude Code and Gemini CLI
 View and manage AI sessions (folder-based).
 Supports both Claude Code and Gemini CLI backends.
 """
@@ -313,11 +313,11 @@ def main(directory: Optional[str],
     Supports both Claude Code and Gemini CLI backends.
 
     Examples:
-        claude-sessions                      # Show sessions for current directory
-        claude-sessions --provider gemini    # Show Gemini sessions
-        claude-sessions ~/my-project         # Show sessions for specific directory
-        claude-sessions --all                # Show all sessions (grouped by directory)
-        claude-sessions --since 2025-01-01 --search auth
+        Tules-sessions                      # Show sessions for current directory
+        Tules-sessions --provider gemini    # Show Gemini sessions
+        Tules-sessions ~/my-project         # Show sessions for specific directory
+        Tules-sessions --all                # Show all sessions (grouped by directory)
+        Tules-sessions --since 2025-01-01 --search auth
     """
 
     # Get provider

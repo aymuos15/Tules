@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository contains two standalone Python CLI tools for managing Claude Code background agents and sessions:
 
-1. **`claude-bg.py`** - Run Claude agents in headless Docker-sandboxed mode with automatic permission bypass
-2. **`claude-sessions.py`** - Interactive TUI for viewing and managing Claude Code sessions, scoped by working directory
+1. **`Tules.py`** - Run Claude agents in headless Docker-sandboxed mode with automatic permission bypass
+2. **`Tules-sessions.py`** - Interactive TUI for viewing and managing Claude Code sessions, scoped by working directory
 
 Both tools are designed to be minimal, single-file executables that rely only on Rich (TUI) and Click (CLI).
 
@@ -18,18 +18,18 @@ Both tools are designed to be minimal, single-file executables that rely only on
 pip install -r requirements.txt
 
 # Make scripts executable
-chmod +x claude-bg.py claude-sessions.py
+chmod +x Tules.py Tules-sessions.py
 
 # Create symlinks (tools are installed to ~/.local/bin/)
-ln -sf $(pwd)/claude-bg.py ~/.local/bin/claude-bg
-ln -sf $(pwd)/claude-sessions.py ~/.local/bin/claude-sessions
+ln -sf $(pwd)/Tules.py ~/.local/bin/Tules
+ln -sf $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
 ```
 
-**First-time Docker setup**: `claude-bg` will automatically build a Docker image (`claude-bg:latest`) on first run.
+**First-time Docker setup**: `Tules` will automatically build Docker images (`tules-claude:latest`, `tules-gemini:latest`) on first run.
 
 ## Architecture
 
-### `claude-bg` - Background Agent Runner
+### `Tules` - Background Agent Runner
 
 **Key Design Pattern**: Docker-based sandboxing with log capture via `docker logs -f`
 
@@ -54,7 +54,7 @@ ln -sf $(pwd)/claude-sessions.py ~/.local/bin/claude-sessions
 - Logs: `~/.claude/bg-agents/logs/<session-id>.log`
 - Schedules: `~/.claude/bg-agents/schedules.json`
 
-### `claude-sessions` - Session Manager TUI
+### `Tules-sessions` - Session Manager TUI
 
 **Key Design Pattern**: Folder-based session discovery with path encoding
 
@@ -82,24 +82,24 @@ ln -sf $(pwd)/claude-sessions.py ~/.local/bin/claude-sessions
 
 ```bash
 # Test background agent (should complete in ~5-15 seconds)
-claude-bg run "what is 2+2?"
+Tules run "what is 2+2?"
 
 # Check it ran
-claude-bg list --all
+Tules list --all
 
 # View output
-claude-bg logs <session-id>
+Tules logs <session-id>
 
 # Test session viewer (shows sessions for current directory)
-claude-sessions --list
+Tules-sessions --list
 
 # Clear all test sessions
-claude-bg clear --force
+Tules clear --force
 ```
 
 ## Common Modifications
 
-### Adding a New Command to `claude-bg`
+### Adding a New Command to `Tules`
 
 1. Add Click decorator: `@cli.command()`
 2. Define function with Click arguments/options
@@ -111,7 +111,7 @@ claude-bg clear --force
 
 **Dockerfile location**: `./Dockerfile` (in repo root)
 
-**Current mounts** (in `claude-bg.py`):
+**Current mounts** (in `Tules.py`):
 ```python
 '-v', f'{cwd}:/workspace'                    # Working directory
 '-v', f'{home}/.claude:{home}/.claude'       # Claude config dir
@@ -124,7 +124,7 @@ claude-bg clear --force
 
 ### Session Discovery Logic
 
-The `find_sessions_for_directory()` function in `claude-sessions.py`:
+The `find_sessions_for_directory()` function in `Tules-sessions.py`:
 - Takes absolute path, encodes it, looks in `~/.claude/projects/<encoded>/`
 - Returns `Session` objects (dataclass-like) with parsed metadata
 - Sorts by timestamp (newest first)

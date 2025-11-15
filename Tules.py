@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-claude-bg - Background agent runner for Claude Code and Gemini CLI
+Tules - Background agent runner for Claude Code and Gemini CLI
 Runs AI agents in headless sandboxed mode with no permission prompts.
 Supports both Claude Code and Gemini CLI backends.
 """
@@ -124,9 +124,9 @@ def sanitize_branch_name(prompt: str, session_id: str, provider_name: str = 'ai'
     if not sanitized:
         sanitized = 'task'
 
-    # Format: <provider>-bg/<prompt>-<short-session-id>
+    # Format: tules-<provider>/<prompt>-<short-session-id>
     short_id = session_id[:8]
-    return f'{provider_name}-bg/{sanitized}-{short_id}'
+    return f'tules-{provider_name}/{sanitized}-{short_id}'
 
 def create_git_branch(branch_name: str) -> bool:
     """Create and checkout a new git branch"""
@@ -148,7 +148,7 @@ def check_docker() -> bool:
 
 def ensure_docker_image(provider_name: str = 'claude') -> bool:
     """Ensure Docker image is built for the given provider"""
-    image_name = f'{provider_name}-bg:latest'
+    image_name = f'tules-{provider_name}:latest'
 
     # Check if image exists
     result = subprocess.run(
@@ -239,7 +239,7 @@ def run_background(prompt: str, provider, session_id: Optional[str] = None, use_
         uid = os.getuid()
         gid = os.getgid()
 
-        container_name = f'{provider.get_name()}-bg-{session_id[:8]}'
+        container_name = f'tules-{provider.get_name()}-{session_id[:8]}'
 
         # Get provider-specific mounts
         mounts = provider.get_docker_mounts(cwd, home, binary_path)
@@ -267,7 +267,7 @@ def run_background(prompt: str, provider, session_id: Optional[str] = None, use_
             '-w', '/workspace',  # Set working directory
             '-e', f'SESSION_ID={session_id}',
             '-e', f'HOME={home}',  # Set HOME env var
-            f'{provider.get_name()}-bg:latest',
+            f'tules-{provider.get_name()}:latest',
         ] + provider.get_run_command(prompt, session_id, 'text')
 
         # Run in background and capture logs using docker logs
@@ -340,14 +340,14 @@ def cli(ctx, provider):
 
     \b
     Examples:
-      claude-bg run "analyze this codebase for bugs"
-      claude-bg --provider gemini run "explain this code"
-      claude-bg list --all
-      claude-bg logs a1b2c3d4
-      claude-bg clear --force
+      Tules run "analyze this codebase for bugs"
+      Tules --provider gemini run "explain this code"
+      Tules list --all
+      Tules logs a1b2c3d4
+      Tules clear --force
 
     \b
-    Each task runs in its own git branch (<provider>-bg/<task-description>-<id>)
+    Each task runs in its own git branch (tules-<provider>/<task-description>-<id>)
     Use standard git commands to review and merge branches when complete.
     """
     # Initialize provider and store in context
@@ -380,7 +380,7 @@ def run(ctx, prompt: str):
         f"Prompt: {prompt[:60]}{'...' if len(prompt) > 60 else ''}\n"
         f"{branch_info}"
         f"Sandboxed: {'Yes (Docker)' if check_docker() else 'No (Docker not available)'}\n\n"
-        f"View logs: [yellow]claude-bg logs {session_id[:8]}[/yellow]",
+        f"View logs: [yellow]Tules logs {session_id[:8]}[/yellow]",
         title="🤖 Agent Started",
         border_style="green"
     ))
@@ -441,7 +441,7 @@ def list(show_all: bool, provider_filter: Optional[str]):
         status_color = "green" if session['status'] == 'running' else "dim"
         branch_display = session.get('branch', 'N/A')
         if branch_display and branch_display != 'N/A':
-            # Show just the last part after <provider>-bg/
+            # Show just the last part after tules-<provider>/
             branch_display = branch_display.split('/')[-1][:20]
 
         table.add_row(
@@ -570,7 +570,7 @@ def schedule_task(cron_expr: str, prompt: str, name: Optional[str]):
         f"Name: {name or f'Task {len(schedules)}'}\n"
         f"Cron: {cron_expr}\n"
         f"Prompt: {prompt[:60]}{'...' if len(prompt) > 60 else ''}\n\n"
-        f"[yellow]Run 'claude-bg daemon' to start the scheduler[/yellow]",
+        f"[yellow]Run 'Tules daemon' to start the scheduler[/yellow]",
         title="📅 Task Scheduled",
         border_style="green"
     ))

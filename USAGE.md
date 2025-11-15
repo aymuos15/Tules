@@ -5,24 +5,24 @@
 ### Installation
 
 ```bash
-cd /home/localssk23/geminihack/claude-bg-tools
+cd /home/localssk23/geminihack/Tules
 pip install -r requirements.txt
-chmod +x claude-bg.py claude-sessions.py
-ln -sf $(pwd)/claude-bg.py ~/.local/bin/claude-bg
-ln -sf $(pwd)/claude-sessions.py ~/.local/bin/claude-sessions
+chmod +x Tules.py Tules-sessions.py
+ln -sf $(pwd)/Tules.py ~/.local/bin/Tules
+ln -sf $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
 ```
 
-## `claude-bg` - Background Agent Runner
+## `Tules` - Background Agent Runner
 
 ### Run a single background task
 
 ```bash
 # Auto-detects available provider (Claude or Gemini)
-claude-bg run "analyze this codebase and find security vulnerabilities"
+Tules run "analyze this codebase and find security vulnerabilities"
 
 # Or explicitly choose a provider
-claude-bg --provider claude run "analyze with Claude"
-claude-bg --provider gemini run "analyze with Gemini"
+Tules --provider claude run "analyze with Claude"
+Tules --provider gemini run "analyze with Gemini"
 ```
 
 **What happens:**
@@ -37,7 +37,7 @@ claude-bg --provider gemini run "analyze with Gemini"
 ### Run multiple tasks in parallel
 
 ```bash
-claude-bg parallel \
+Tules parallel \
   "analyze authentication code" \
   "review database queries for SQL injection" \
   "check for XSS vulnerabilities"
@@ -52,10 +52,10 @@ claude-bg parallel \
 
 ```bash
 # Show only running agents
-claude-bg list
+Tules list
 
 # Show all agents (including completed)
-claude-bg list --all
+Tules list --all
 ```
 
 **Output:**
@@ -72,26 +72,26 @@ Background Agents
 
 ```bash
 # Show last 50 lines (default)
-claude-bg logs a1b2c3d4
+Tules logs a1b2c3d4
 
 # Show last 100 lines
-claude-bg logs a1b2c3d4 -n 100
+Tules logs a1b2c3d4 -n 100
 
 # Follow logs in real-time (like tail -f)
-claude-bg logs a1b2c3d4 --follow
+Tules logs a1b2c3d4 --follow
 ```
 
 ### Kill a running agent
 
 ```bash
-claude-bg kill a1b2c3d4
+Tules kill a1b2c3d4
 ```
 
 ### Schedule a task (experimental)
 
 ```bash
 # Schedule daily at 9am
-claude-bg schedule-task "0 9 * * *" "daily code review" --name "daily-review"
+Tules schedule-task "0 9 * * *" "daily code review" --name "daily-review"
 
 # Note: Scheduler daemon not yet implemented
 # Use system cron instead for now
@@ -99,13 +99,13 @@ claude-bg schedule-task "0 9 * * *" "daily code review" --name "daily-review"
 
 ---
 
-## `claude-sessions` - Session Manager TUI
+## `Tules-sessions` - Session Manager TUI
 
 ### View sessions for current directory
 
 ```bash
 cd ~/my-project
-claude-sessions
+Tules-sessions
 ```
 
 **What happens:**
@@ -124,14 +124,14 @@ claude-sessions
 ### View sessions for specific directory
 
 ```bash
-claude-sessions ~/geminihack
-claude-sessions /home/user/CAI4Soumya
+Tules-sessions ~/geminihack
+Tules-sessions /home/user/CAI4Soumya
 ```
 
 ### View all sessions (grouped by directory)
 
 ```bash
-claude-sessions --all
+Tules-sessions --all
 ```
 
 **Output:**
@@ -156,27 +156,27 @@ claude-sessions --all
 
 ```bash
 # Show sessions since a date
-claude-sessions --since "2025-11-01"
+Tules-sessions --since "2025-11-01"
 
 # Search by summary content (regex)
-claude-sessions --search "authentication"
+Tules-sessions --search "authentication"
 
 # Show only agent sessions
-claude-sessions --agents-only
+Tules-sessions --agents-only
 
 # Show only main sessions
-claude-sessions --main-only
+Tules-sessions --main-only
 
 # Combine filters
-claude-sessions --since "2025-11-01" --search "auth" --main-only
+Tules-sessions --since "2025-11-01" --search "auth" --main-only
 ```
 
 ### Non-interactive mode
 
 ```bash
 # Just list sessions, no TUI
-claude-sessions --list
-claude-sessions ~/my-project --list
+Tules-sessions --list
+Tules-sessions ~/my-project --list
 ```
 
 ---
@@ -187,42 +187,42 @@ claude-sessions ~/my-project --list
 
 ```bash
 # Start background review
-claude-bg run "review all Python files for security issues and generate a report"
+Tules run "review all Python files for security issues and generate a report"
 
 # List to get session ID
-claude-bg list
+Tules list
 
 # Follow logs to monitor progress
-claude-bg logs a1b2c3d4 --follow
+Tules logs a1b2c3d4 --follow
 
 # When done, view the session
-claude-sessions
+Tules-sessions
 # (navigate to session, press 'v' to see details)
 ```
 
 ### Parallel Testing
 
 ```bash
-claude-bg parallel \
+Tules parallel \
   "run pytest and fix any failing tests" \
   "run eslint and fix linting errors" \
   "run mypy and fix type errors"
 
 # Monitor all at once
-claude-bg list --all
+Tules list --all
 ```
 
 ### Session Recovery
 
 ```bash
 # View all sessions
-claude-sessions --all
+Tules-sessions --all
 
 # Find old session
-claude-sessions --search "authentication refactor"
+Tules-sessions --search "authentication refactor"
 
 # Resume the session (interactive TUI)
-claude-sessions
+Tules-sessions
 # (navigate to session, press 'r')
 
 # Or fork to create a new branch

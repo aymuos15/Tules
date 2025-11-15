@@ -4,8 +4,8 @@
 
 Two minimal Python tools for managing Claude Code background agents and sessions:
 
-1. **`claude-bg`** - Run Claude agents in headless sandboxed mode
-2. **`claude-sessions`** - Interactive TUI for viewing and managing sessions (folder-based)
+1. **`Tules`** - Run Claude agents in headless sandboxed mode
+2. **`Tules-sessions`** - Interactive TUI for viewing and managing sessions (folder-based)
 
 ## Implementation Details
 
@@ -17,8 +17,8 @@ Two minimal Python tools for managing Claude Code background agents and sessions
 - **Dependencies:** rich, click, schedule
 
 ### Lines of Code
-- `claude-bg.py`: ~350 lines
-- `claude-sessions.py`: ~300 lines
+- `Tules.py`: ~350 lines
+- `Tules-sessions.py`: ~300 lines
 - **Total:** ~650 lines (excluding comments/whitespace)
 
 ### Key Design Decisions
@@ -31,12 +31,12 @@ Two minimal Python tools for managing Claude Code background agents and sessions
 
 ## Architecture
 
-### `claude-bg` Architecture
+### `Tules` Architecture
 
 ```
 User Command
     ↓
-claude-bg CLI (Click)
+Tules CLI (Click)
     ↓
 ┌─────────────────────────┐
 │ Session Tracking        │ → ~/.claude/bg-agents/sessions.json
@@ -60,7 +60,7 @@ claude-bg CLI (Click)
 Log File (~/.claude/bg-agents/logs/<id>.log)
 ```
 
-### `claude-sessions` Architecture
+### `Tules-sessions` Architecture
 
 ```
 User Input (directory path or CWD)
@@ -142,7 +142,7 @@ Each line is a JSON object:
 
 ## Key Features Implemented
 
-### `claude-bg` Features
+### `Tules` Features
 ✅ Run single background task
 ✅ Parallel task execution
 ✅ Session tracking and listing
@@ -152,7 +152,7 @@ Each line is a JSON object:
 ✅ Auto-skip permission prompts
 ⚠️ Scheduling (metadata only, daemon not implemented)
 
-### `claude-sessions` Features
+### `Tules-sessions` Features
 ✅ Folder-based session discovery
 ✅ Interactive TUI with Rich
 ✅ Arrow key navigation
@@ -168,33 +168,33 @@ Each line is a JSON object:
 ## Installation
 
 ```bash
-cd /home/localssk23/geminihack/claude-bg-tools
+cd /home/localssk23/geminihack/Tules
 pip install -r requirements.txt
-chmod +x claude-bg.py claude-sessions.py
-ln -sf $(pwd)/claude-bg.py ~/.local/bin/claude-bg
-ln -sf $(pwd)/claude-sessions.py ~/.local/bin/claude-sessions
+chmod +x Tules.py Tules-sessions.py
+ln -sf $(pwd)/Tules.py ~/.local/bin/Tules
+ln -sf $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
 ```
 
 ## Testing Status
 
 ### Tested Commands
 
-`claude-bg`:
-- ✅ `claude-bg --help`
-- ✅ `claude-bg list`
-- ✅ `claude-bg list --all`
-- ⚠️ `claude-bg run` (not tested with actual execution)
-- ⚠️ `claude-bg parallel` (not tested with actual execution)
-- ⚠️ `claude-bg logs` (requires running session)
-- ⚠️ `claude-bg kill` (requires running session)
+`Tules`:
+- ✅ `Tules --help`
+- ✅ `Tules list`
+- ✅ `Tules list --all`
+- ⚠️ `Tules run` (not tested with actual execution)
+- ⚠️ `Tules parallel` (not tested with actual execution)
+- ⚠️ `Tules logs` (requires running session)
+- ⚠️ `Tules kill` (requires running session)
 
-`claude-sessions`:
-- ✅ `claude-sessions --help`
-- ✅ `claude-sessions --list`
-- ✅ `claude-sessions --agents-only`
-- ✅ `claude-sessions --main-only`
-- ⚠️ `claude-sessions` (interactive mode - requires termios)
-- ⚠️ `claude-sessions --all` (requires multiple project directories)
+`Tules-sessions`:
+- ✅ `Tules-sessions --help`
+- ✅ `Tules-sessions --list`
+- ✅ `Tules-sessions --agents-only`
+- ✅ `Tules-sessions --main-only`
+- ⚠️ `Tules-sessions` (interactive mode - requires termios)
+- ⚠️ `Tules-sessions --all` (requires multiple project directories)
 
 ## Known Limitations
 
@@ -228,9 +228,9 @@ ln -sf $(pwd)/claude-sessions.py ~/.local/bin/claude-sessions
 ## File Manifest
 
 ```
-claude-bg-tools/
-├── claude-bg.py              # Background agent runner (350 lines)
-├── claude-sessions.py        # Session manager TUI (300 lines)
+Tules/
+├── Tules.py              # Background agent runner (350 lines)
+├── Tules-sessions.py        # Session manager TUI (300 lines)
 ├── requirements.txt          # Python dependencies
 ├── README.md                 # Installation and overview
 ├── USAGE.md                  # Detailed usage guide
@@ -276,6 +276,6 @@ Created for personal use. No external dependencies beyond PyPI packages.
 
 ## Contact & Support
 
-- **Repository:** /home/localssk23/geminihack/claude-bg-tools
+- **Repository:** /home/localssk23/geminihack/Tules
 - **Documentation:** See USAGE.md and README.md
 - **Issues:** File locally or in project tracker

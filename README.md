@@ -8,9 +8,9 @@ Minimal Python tools for managing AI background agents and sessions.
 
 ```bash
 pip install -r requirements.txt
-chmod +x claude-bg.py claude-sessions.py !
-ln -s $(pwd)/claude-bg.py ~/.local/bin/claude-bg
-ln -s $(pwd)/claude-sessions.py ~/.local/bin/claude-sessions
+chmod +x Tules.py Tules-sessions.py !
+ln -s $(pwd)/Tules.py ~/.local/bin/Tules
+ln -s $(pwd)/Tules-sessions.py ~/.local/bin/Tules-sessions
 ln -s $(pwd)/! ~/.local/bin/!
 ```
 
@@ -49,56 +49,56 @@ Ultra-short wrapper for running background agents with minimal typing:
 
 ## Tools
 
-### `claude-bg` - Background Agent Runner
+### `Tules` - Background Agent Runner
 
 Run AI agents in headless sandboxed mode with no permission prompts.
 
 ```bash
 # Run a single task in background (auto-detects provider)
-claude-bg run "analyze this codebase and generate a report"
+Tules run "analyze this codebase and generate a report"
 
 # Use specific provider
-claude-bg --provider claude run "analyze code with Claude"
-claude-bg --provider gemini run "analyze code with Gemini"
+Tules --provider claude run "analyze code with Claude"
+Tules --provider gemini run "analyze code with Gemini"
 
 # Schedule a task (cron syntax)
-claude-bg schedule "0 9 * * *" "daily code review"
+Tules schedule "0 9 * * *" "daily code review"
 
 # Run multiple tasks in parallel
-claude-bg parallel "task 1" "task 2" "task 3"
+Tules parallel "task 1" "task 2" "task 3"
 
 # List all background agents
-claude-bg list
+Tules list
 
 # View logs for a specific session
-claude-bg logs <session-id>
+Tules logs <session-id>
 
 # Kill a running agent
-claude-bg kill <session-id>
+Tules kill <session-id>
 ```
 
-### `claude-sessions` - Session Manager TUI
+### `Tules-sessions` - Session Manager TUI
 
 Interactive TUI for viewing and managing AI sessions (folder-based).
 
 ```bash
 # Show sessions for current directory (auto-detects provider)
-claude-sessions
+Tules-sessions
 
 # Use specific provider
-claude-sessions --provider claude
-claude-sessions --provider gemini
+Tules-sessions --provider claude
+Tules-sessions --provider gemini
 
 # Show sessions for specific directory
-claude-sessions ~/my-project
+Tules-sessions ~/my-project
 
 # Show all sessions (grouped by directory)
-claude-sessions --all
+Tules-sessions --all
 
 # Filter sessions
-claude-sessions --since "2025-01-01" --search "authentication"
-claude-sessions --agents-only
-claude-sessions --main-only
+Tules-sessions --since "2025-01-01" --search "authentication"
+Tules-sessions --agents-only
+Tules-sessions --main-only
 
 # Interactive commands:
 # ↑/↓  - Navigate sessions
